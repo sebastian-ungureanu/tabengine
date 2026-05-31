@@ -898,10 +898,10 @@ function App() {
       setTrackNameRevision(revision => revision + 1);
   };
 
-  const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newZoom = parseFloat(e.target.value);
-    setZoom(newZoom);
-    editorRef.current?.setZoom(newZoom);
+  const updateZoomPercent = (percent: number) => {
+      const nextZoom = Math.max(0.5, Math.min(3, Math.round(percent) / 100));
+      setZoom(nextZoom);
+      editorRef.current?.setZoom(nextZoom);
   };
 
   const updateTempo = (bpm: number) => {
@@ -1346,16 +1346,18 @@ function App() {
               setZoom(newZoom);
               editorRef.current?.setZoom(newZoom);
             }} aria-label="Zoom out"><Icon name="minus" /></button>
-            <input
-              type="range"
-              min="0.5"
-              max="3"
-              step="0.1"
-              value={zoom}
-              onChange={handleZoomChange}
-              aria-label="Zoom"
-            />
-            <span>{Math.round(zoom * 100)}%</span>
+            <div className="zoom-percent-control">
+              <input
+                className="zoom-percent-input"
+                type="number"
+                min="50"
+                max="300"
+                value={Math.round(zoom * 100)}
+                onChange={(e) => updateZoomPercent(parseInt(e.target.value) || 50)}
+                aria-label="Zoom percentage"
+              />
+              <span>%</span>
+            </div>
             <button className="icon-button" type="button" onClick={() => {
               const newZoom = Math.min(3, zoom + 0.1);
               setZoom(newZoom);

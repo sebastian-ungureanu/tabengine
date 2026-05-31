@@ -358,7 +358,7 @@ button:disabled {
     display: none;
   }
 
-  .zoom-controls input {
+  .tempo-slider {
     display: none;
   }
 }
@@ -551,14 +551,66 @@ button:disabled {
   z-index: 2;
 }
 
-.zoom-controls input {
-  width: 92px;
+.zoom-controls {
+  gap: 0;
 }
 
-.zoom-controls span {
-  width: 44px;
+.zoom-percent-control {
+  width: 52px;
+  height: 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  align-items: center;
+  border: 1px solid #333c4e;
+  border-radius: 0;
+  background: #202634;
+  overflow: hidden;
+}
+
+.zoom-controls .icon-button {
+  height: 30px;
+  border: 1px solid #333c4e;
+  border-radius: 0;
+}
+
+.zoom-controls .icon-button:first-child {
+  border-radius: 4px 0 0 4px;
+  border-right: 0;
+}
+
+.zoom-controls .icon-button:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: 0;
+}
+
+.zoom-controls .icon-button:hover {
+  background: #2d3749;
+}
+
+.zoom-percent-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: #eef3fb;
+  padding: 0 0 0 6px;
   text-align: right;
+  font: inherit;
   font-size: 12px;
+  appearance: textfield;
+  outline: none;
+}
+
+.zoom-percent-input::-webkit-outer-spin-button,
+.zoom-percent-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.zoom-percent-control span {
+  color: #8791a2;
+  font-size: 11px;
 }
 
 .ghost-button,
@@ -1053,7 +1105,6 @@ input[type="file"] {
 }
 
 .track-slider,
-.zoom-controls input,
 .field-row input[type="range"],
 .track-mix-control input[type="range"] {
   appearance: none;
@@ -1064,7 +1115,6 @@ input[type="file"] {
 }
 
 .track-slider::-webkit-slider-thumb,
-.zoom-controls input::-webkit-slider-thumb,
 .field-row input[type="range"]::-webkit-slider-thumb,
 .track-mix-control input[type="range"]::-webkit-slider-thumb {
   appearance: none;
