@@ -338,6 +338,31 @@ button:disabled {
   color: #616b7b;
 }
 
+@media (max-width: 1920px) {
+  .song-title-nav {
+    width: min(360px, 34vw);
+    min-width: 300px;
+    grid-template-columns: 36px minmax(170px, 1fr) 36px;
+  }
+
+  .song-nav-button,
+  .song-nav-button.next-song {
+    width: 36px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: 0;
+    text-align: center;
+  }
+
+  .song-nav-button span {
+    display: none;
+  }
+
+  .zoom-controls input {
+    display: none;
+  }
+}
+
 .song-stats {
   margin-left: auto;
   display: flex;
