@@ -42,6 +42,10 @@ interface TimelineViewProps {
     onToggleTrack: (trackIndex: number) => void;
     currentTick: number;
     onSeek: (tick: number) => void;
+    timelineMode: 'bars' | 'timeline';
+    onTimelineModeChange: (mode: 'bars' | 'timeline') => void;
+    snapToBarStart: boolean;
+    onSnapToBarStartChange: (enabled: boolean) => void;
     selectionMode: 'single' | 'multi';
     onSelectionModeChange: (mode: 'single' | 'multi') => void;
     trackSettings: Record<number, TrackSettings>;
@@ -49,13 +53,12 @@ interface TimelineViewProps {
 }
 
 const TimelineView: React.FC<TimelineViewProps> = ({ 
-    score, activeTracks, onToggleTrack, currentTick, onSeek, selectionMode, onSelectionModeChange,
+    score, activeTracks, onToggleTrack, currentTick, onSeek, timelineMode, onTimelineModeChange,
+    snapToBarStart, onSnapToBarStartChange, selectionMode, onSelectionModeChange,
     trackSettings, onTrackSettingsChange
 }) => {
     const visualRef = useRef<HTMLDivElement>(null);
     const [height, setHeight] = React.useState(300);
-    const [timelineMode, setTimelineMode] = React.useState<'bars' | 'timeline'>('bars');
-    const [snapToBarStart, setSnapToBarStart] = React.useState(false);
     const isResizing = useRef(false);
 
     React.useEffect(() => {
@@ -224,14 +227,14 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                     <button
                         className={timelineMode === 'bars' ? 'active' : ''}
                         type="button"
-                        onClick={() => setTimelineMode('bars')}
+                        onClick={() => onTimelineModeChange('bars')}
                     >
                         Bars
                     </button>
                     <button
                         className={timelineMode === 'timeline' ? 'active' : ''}
                         type="button"
-                        onClick={() => setTimelineMode('timeline')}
+                        onClick={() => onTimelineModeChange('timeline')}
                     >
                         Timeline
                     </button>
@@ -240,7 +243,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                     <button
                         className={snapToBarStart ? 'active' : ''}
                         type="button"
-                        onClick={() => setSnapToBarStart(value => !value)}
+                        onClick={() => onSnapToBarStartChange(!snapToBarStart)}
                     >
                         Snap to bar start
                     </button>
