@@ -14,6 +14,7 @@ export interface AlphaTabEditorRef {
   playPause: () => void;
   stop: () => void;
   renderTracks: (tracks: alphaTab.model.Track[]) => void;
+  setNotationVisibility: (showStandardNotation: boolean, showTablature: boolean, tracks?: alphaTab.model.Track[]) => void;
   setZoom: (zoom: number) => void;
   setPlaybackSpeed: (speed: number) => void;
   seekToTick: (tick: number) => void;
@@ -35,6 +36,7 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
         playerMode: alphaTab.PlayerMode.EnabledAutomatic,
         enableCursor: true,
         enableAnimatedBeatCursor: true,
+        enableElementHighlighting: true,
         soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2',
       },
       display: {
@@ -82,6 +84,23 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
     },
     renderTracks: (tracks: alphaTab.model.Track[]) => {
       apiRef.current?.renderTracks(tracks);
+    },
+    setNotationVisibility: (showStandardNotation: boolean, showTablature: boolean, tracks?: alphaTab.model.Track[]) => {
+      const api = apiRef.current;
+      if (!api?.score) return;
+
+      api.score.tracks.forEach(track => {
+        track.staves.forEach(staff => {
+          staff.showStandardNotation = showStandardNotation;
+          staff.showTablature = showTablature;
+        });
+      });
+
+      if (tracks?.length) {
+        api.renderTracks(tracks);
+      } else {
+        api.render();
+      }
     },
     setZoom: (zoom: number) => {
       if (apiRef.current) {

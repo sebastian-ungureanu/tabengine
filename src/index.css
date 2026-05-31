@@ -4,6 +4,9 @@
   --toolbar-bg: #333333;
   --text-color: #cccccc;
   --accent-color: #007acc;
+  --playhead-color: #ff0000;
+  --playhead-glow: rgba(255, 0, 0, 0.45);
+  --playhead-bar-bg: rgba(255, 0, 0, 0.14);
   --border-color: #3c3c3c;
   --hover-bg: #2a2d2e;
 }

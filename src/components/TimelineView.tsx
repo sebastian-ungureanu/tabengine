@@ -1,9 +1,32 @@
 import React, { useRef } from 'react';
 import * as alphaTab from '@coderline/alphatab';
+import InstrumentIcon from './InstrumentIcon';
+import { getInstrumentCategory, INSTRUMENT_COLORS } from '../utils/instruments';
 
 interface BarState {
     hasNotes: boolean;
     index: number;
+}
+
+interface MidiNoteEvent {
+    id: string;
+    start: number;
+    duration: number;
+    lane: number;
+}
+
+interface TimelineTrackData {
+    track: alphaTab.model.Track;
+    barStates: BarState[];
+    noteEvents: MidiNoteEvent[];
+}
+
+interface TimelineData {
+    totalBars: number;
+    totalTicks: number;
+    barStartTicks: number[];
+    barSnapTicks: number[];
+    timelineTracks: TimelineTrackData[];
 }
 
 export interface TrackSettings {
@@ -30,7 +53,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     trackSettings, onTrackSettingsChange
 }) => {
     const visualRef = useRef<HTMLDivElement>(null);
-    const [height, setHeight] = React.useState(200);
+    const [height, setHeight] = React.useState(300);
+    const [timelineMode, setTimelineMode] = React.useState<'bars' | 'timeline'>('bars');
+    const [snapToBarStart, setSnapToBarStart] = React.useState(false);
     const isResizing = useRef(false);
 
     React.useEffect(() => {
@@ -55,46 +80,134 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         };
     }, []);
 
+    const timelineData = React.useMemo(() => {
+        if (!score) {
+            return {
+                totalBars: 0,
+                totalTicks: 0,
+                barStartTicks: [],
+                barSnapTicks: [],
+                timelineTracks: [] as TimelineTrackData[]
+            } satisfies TimelineData;
+        }
+
+        const totalBars = score.masterBars.length;
+        const barStartTicks: number[] = [];
+        let totalTicks = 0;
+        score.masterBars.forEach(masterBar => {
+            barStartTicks.push(totalTicks);
+            totalTicks += masterBar.calculateDuration();
+        });
+        const firstNoteTicks = Array.from({ length: totalBars }, () => Number.POSITIVE_INFINITY);
+        const timelineTracks = score.tracks.map(track => {
+            const barStates: BarState[] = [];
+            const rawNoteEvents: Array<MidiNoteEvent & { pitch: number }> = [];
+
+            for (let i = 0; i < totalBars; i++) {
+                let hasNotes = false;
+                track.staves.forEach(staff => {
+                    const bar = staff.bars[i];
+                    if (!bar) return;
+                    bar.voices.forEach((voice: alphaTab.model.Voice) => {
+                        voice.beats.forEach((beat: alphaTab.model.Beat) => {
+                            if (beat.notes.length === 0) return;
+                            hasNotes = true;
+
+                            const start = Math.max(0, beat.absolutePlaybackStart || beat.playbackStart || 0);
+                            const duration = Math.max(30, beat.playbackDuration || 60);
+                            firstNoteTicks[i] = Math.min(firstNoteTicks[i], start);
+                            beat.notes.forEach((note: alphaTab.model.Note) => {
+                                const pitch = note.isPercussion
+                                    ? note.percussionArticulation || note.element || note.string || 36
+                                    : note.realValue || (note.octave * 12) + note.tone;
+
+                                rawNoteEvents.push({
+                                    id: `${track.index}-${staff.index}-${i}-${voice.index}-${beat.index}-${note.index}`,
+                                    start,
+                                    duration,
+                                    pitch,
+                                    lane: 50
+                                });
+                            });
+                        });
+                    });
+                });
+                barStates.push({ hasNotes, index: i });
+            }
+
+            const pitches = rawNoteEvents.map(note => note.pitch);
+            const minPitch = Math.min(...pitches);
+            const maxPitch = Math.max(...pitches);
+            const pitchRange = Math.max(1, maxPitch - minPitch);
+            const noteEvents = rawNoteEvents.map(note => ({
+                ...note,
+                lane: 82 - ((note.pitch - minPitch) / pitchRange) * 64
+            }));
+
+            return { track, barStates, noteEvents };
+        });
+        const barSnapTicks = firstNoteTicks.map((tick, index) => (
+            Number.isFinite(tick) ? tick : barStartTicks[index] || 0
+        ));
+
+        return { totalBars, totalTicks, barStartTicks, barSnapTicks, timelineTracks };
+    }, [score]);
+
     if (!score) return (
         <div className="timeline-container" style={{ height: `${height}px` }}>
-            <div className="timeline-header">Timeline</div>
-            <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>Load a file to see the timeline</div>
+            <div className="timeline-header">
+                <div className="timeline-tabs">
+                    <button className="active" type="button">Bars</button>
+                    <button type="button">Timeline</button>
+                </div>
+            </div>
+            <div className="timeline-empty-state">Load a file to see the timeline</div>
         </div>
     );
 
-    // Calculate bar states for each track
-    const totalBars = score.masterBars.length;
-    const timelineTracks = score.tracks.map(track => {
-        const barStates: BarState[] = [];
-        
-        // Flatten bars across staves or just take the first staff's bars
-        const bars = track.staves[0].bars; 
-        
-        for (let i = 0; i < totalBars; i++) {
-            const bar = bars[i];
-            let hasNotes = false;
-            if (bar) {
-                bar.voices.forEach((voice: alphaTab.model.Voice) => {
-                    if (voice.beats.some((beat: alphaTab.model.Beat) => beat.notes.length > 0)) {
-                        hasNotes = true;
-                    }
-                });
-            }
-            barStates.push({ hasNotes, index: i });
-        }
-        return { track, barStates };
-    });
+    const { totalBars, totalTicks, barStartTicks, barSnapTicks, timelineTracks } = timelineData;
 
-    const totalTicks = score.masterBars.reduce((acc, mb) => acc + mb.calculateDuration(), 0);
+    let elapsedTicks = 0;
+    let currentBarIndex = 0;
+    for (let i = 0; i < score.masterBars.length; i++) {
+        const duration = score.masterBars[i].calculateDuration();
+        if (currentTick < elapsedTicks + duration || i === score.masterBars.length - 1) {
+            currentBarIndex = i;
+            break;
+        }
+        elapsedTicks += duration;
+    }
+    const currentMasterBar = score.masterBars[currentBarIndex];
+    const currentBarNumber = currentBarIndex + 1;
+    const timeSignature = `${currentMasterBar.timeSignatureNumerator}/${currentMasterBar.timeSignatureDenominator}`;
+    const rulerStep = totalBars > 48 ? 8 : totalBars > 24 ? 4 : 2;
+    const rulerMarks = Array.from(
+        { length: Math.ceil(totalBars / rulerStep) + 1 },
+        (_, index) => Math.min(index * rulerStep, totalBars)
+    ).filter((value, index, values) => value > 0 && values.indexOf(value) === index);
     
-    const playheadPosition = (currentTick / totalTicks) * 100;
+    const playheadPosition = totalTicks > 0 ? Math.max(0, Math.min(100, (currentTick / totalTicks) * 100)) : 0;
 
     const handleTimelineClick = (e: React.MouseEvent) => {
         if (!visualRef.current) return;
         const rect = visualRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const percentage = Math.max(0, Math.min(1, x / rect.width));
-        onSeek(Math.floor(percentage * totalTicks));
+        const clickedTick = Math.floor(percentage * totalTicks);
+
+        if (!snapToBarStart) {
+            onSeek(clickedTick);
+            return;
+        }
+
+        let clickedBarIndex = 0;
+        for (let i = barStartTicks.length - 1; i >= 0; i--) {
+            if (clickedTick >= barStartTicks[i]) {
+                clickedBarIndex = i;
+                break;
+            }
+        }
+        onSeek(Math.floor(barSnapTicks[clickedBarIndex] ?? clickedTick));
     };
 
     return (
@@ -107,43 +220,81 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                 }}
             />
             <div className="timeline-header">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <span>Multi-Track Timeline</span>
-                    <div className="selection-mode-toggle" style={{ display: 'flex', gap: '2px' }}>
-                        <button 
-                            style={{ 
-                                padding: '2px 8px', 
-                                fontSize: '10px', 
-                                borderRadius: '4px 0 0 4px',
-                                backgroundColor: selectionMode === 'single' ? 'var(--accent-color)' : '#444'
-                            }} 
-                            onClick={() => onSelectionModeChange('single')}
-                        >
-                            Single Select
-                        </button>
-                        <button 
-                            style={{ 
-                                padding: '2px 8px', 
-                                fontSize: '10px', 
-                                borderRadius: '0 4px 4px 0',
-                                backgroundColor: selectionMode === 'multi' ? 'var(--accent-color)' : '#444'
-                            }} 
-                            onClick={() => onSelectionModeChange('multi')}
-                        >
-                            Multi Select
-                        </button>
-                    </div>
+                <div className="timeline-tabs">
+                    <button
+                        className={timelineMode === 'bars' ? 'active' : ''}
+                        type="button"
+                        onClick={() => setTimelineMode('bars')}
+                    >
+                        Bars
+                    </button>
+                    <button
+                        className={timelineMode === 'timeline' ? 'active' : ''}
+                        type="button"
+                        onClick={() => setTimelineMode('timeline')}
+                    >
+                        Timeline
+                    </button>
                 </div>
-                <span>{totalBars} Bars</span>
+                <div className="timeline-toolstrip">
+                    <button
+                        className={snapToBarStart ? 'active' : ''}
+                        type="button"
+                        onClick={() => setSnapToBarStart(value => !value)}
+                    >
+                        Snap to bar start
+                    </button>
+                    <button
+                        className={selectionMode === 'single' ? 'active' : ''}
+                        type="button"
+                        onClick={() => onSelectionModeChange('single')}
+                    >
+                        Single
+                    </button>
+                    <button
+                        className={selectionMode === 'multi' ? 'active' : ''}
+                        type="button"
+                        onClick={() => onSelectionModeChange('multi')}
+                    >
+                        Multi
+                    </button>
+                </div>
+                <div className="timeline-meta">
+                    <span>Bar {currentBarNumber}</span>
+                    <span>{totalBars} bars</span>
+                    <span>{timeSignature}</span>
+                </div>
             </div>
-            <div className="timeline-tracks">
-                {timelineTracks.map(({ track, barStates }) => {
+            <div className="timeline-ruler">
+                <div className="timeline-ruler-spacer" />
+                <div className="timeline-ruler-grid">
+                    {rulerMarks.map(mark => (
+                        <span key={mark} style={{ left: `${((mark - 1) / totalBars) * 100}%` }}>
+                            {mark}
+                        </span>
+                    ))}
+                </div>
+            </div>
+            <div
+                className="timeline-tracks"
+                style={{ '--timeline-track-count': timelineTracks.length } as React.CSSProperties}
+            >
+                <div className="timeline-playhead-layer">
+                    <div
+                        className="timeline-playhead"
+                        style={{ left: `${playheadPosition}%` }}
+                    />
+                </div>
+                {timelineTracks.map(({ track, barStates, noteEvents }) => {
                     const settings = trackSettings[track.index] || { volume: 8, pan: 0, mute: false, solo: false };
+                    const instrumentCategory = getInstrumentCategory(track);
+                    const instrumentColor = INSTRUMENT_COLORS[instrumentCategory];
                     return (
                         <div key={track.index} className="timeline-track-row">
                             <div className={`timeline-track-info ${activeTracks.includes(track.index) ? 'active' : ''}`}>
+                                <InstrumentIcon track={track} className="timeline-track-icon" />
                                 <div className="track-name" onClick={() => onToggleTrack(track.index)}>
-                                    {track.name}
+                                    <strong>{track.index + 1}. {track.name}</strong>
                                 </div>
                                 <div className="track-controls">
                                     <button 
@@ -178,23 +329,35 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                     </div>
                                 </div>
                             </div>
-                            <div className="timeline-visual" ref={track.index === 0 ? visualRef : null} onClick={handleTimelineClick}>
-                                {track.index === 0 && (
-                                    <div 
-                                        className="timeline-playhead" 
-                                        style={{ left: `${playheadPosition}%` }}
-                                    />
-                                )}
-                                {barStates.map((bar, i) => (
-                                    <div 
-                                        key={i}
-                                        className={`timeline-block ${bar.hasNotes ? '' : 'empty'}`}
-                                        style={{
-                                            left: `${(i / totalBars) * 100}%`,
-                                            width: `${(1 / totalBars) * 100}%`
-                                        }}
-                                    />
-                                ))}
+                            <div
+                                className={`timeline-visual ${timelineMode === 'timeline' ? 'timeline-visual-notes' : ''}`}
+                                ref={track.index === 0 ? visualRef : null}
+                                onClick={handleTimelineClick}
+                            >
+                                {timelineMode === 'bars'
+                                    ? barStates.map((bar, i) => (
+                                        <div
+                                            key={bar.index}
+                                            className={`timeline-block ${bar.hasNotes ? '' : 'empty'}`}
+                                            style={{
+                                                left: `${(i / totalBars) * 100}%`,
+                                                width: `${(1 / totalBars) * 100}%`,
+                                                '--timeline-track-color': instrumentColor
+                                            } as React.CSSProperties}
+                                        />
+                                    ))
+                                    : noteEvents.map(note => (
+                                        <div
+                                            key={note.id}
+                                            className="timeline-note"
+                                            style={{
+                                                left: `${totalTicks > 0 ? (note.start / totalTicks) * 100 : 0}%`,
+                                                width: `${totalTicks > 0 ? Math.max(0.18, (note.duration / totalTicks) * 100) : 0.18}%`,
+                                                top: `${note.lane}%`,
+                                                '--timeline-track-color': instrumentColor
+                                            } as React.CSSProperties}
+                                        />
+                                    ))}
                             </div>
                         </div>
                     );
