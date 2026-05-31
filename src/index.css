@@ -1,0 +1,25 @@
+:root {
+  --bg-color: #1e1e1e;
+  --sidebar-bg: #252526;
+  --toolbar-bg: #333333;
+  --text-color: #cccccc;
+  --accent-color: #007acc;
+  --border-color: #3c3c3c;
+  --hover-bg: #2a2d2e;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: #1e1e1e;
+  color: #cccccc;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}

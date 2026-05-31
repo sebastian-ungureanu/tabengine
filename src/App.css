@@ -1,0 +1,313 @@
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.toolbar {
+  height: 50px;
+  background-color: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 15px;
+  flex-shrink: 0;
+}
+
+.editor-layout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.editor-container {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  background-color: #2d2d2d;
+}
+
+/* Timeline Styles */
+.timeline-container {
+  background-color: var(--sidebar-bg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.timeline-resizer {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    cursor: ns-resize;
+    z-index: 100;
+}
+
+.timeline-resizer:hover {
+    background-color: var(--accent-color);
+    opacity: 0.5;
+}
+
+.timeline-header {
+  padding: 8px 15px;
+  background-color: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+}
+
+.timeline-tracks {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.timeline-track-row {
+  display: flex;
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+}
+
+.timeline-track-info {
+  width: 320px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-right: 1px solid var(--border-color);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(255,255,255,0.02);
+}
+
+.track-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.track-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-btn {
+  padding: 2px 4px;
+  font-size: 10px;
+  min-width: 24px;
+  background-color: #444;
+  border: none;
+  border-radius: 2px;
+  color: white;
+  cursor: pointer;
+}
+
+.control-btn.solo.active {
+  background-color: #f1c40f;
+  color: black;
+}
+
+.control-btn.mute.active {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.slider-group label {
+  font-size: 8px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.track-slider {
+  width: 50px;
+  height: 4px;
+  appearance: none;
+  background: #444;
+  outline: none;
+  border-radius: 2px;
+}
+
+.track-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.timeline-track-info.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.timeline-visual {
+  flex: 1;
+  position: relative;
+  height: 100%;
+  background-color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  cursor: crosshair;
+}
+
+.timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #ff0000;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.timeline-playhead::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  background-color: #ff0000;
+  border-radius: 50%;
+}
+
+button {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.file-input-label {
+  background-color: var(--accent-color);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+.at-container {
+  background-color: white;
+  min-height: 100%;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  border-radius: 4px;
+  position: relative; /* Essential for cursor layering */
+  overflow: hidden;
+}
+
+/* Force visibility of alphaTab cursors */
+.at-cursor-bar {
+    background: rgba(255, 242, 0, 0.15) !important;
+    z-index: 10 !important;
+}
+
+.at-cursor-beat {
+    background: rgba(0, 122, 255, 0.4) !important; /* Bright blue, 40% transparency */
+    width: 3px !important;
+    z-index: 20 !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 3px rgba(0, 122, 255, 0.3);
+}
+
+.timeline-block {
+  position: absolute;
+  height: 24px;
+  background-color: var(--accent-color);
+  opacity: 0.8;
+  border-radius: 1px;
+  border-right: 1px solid rgba(0, 0, 0, 0.3); /* Split into bars */
+}
+
+.timeline-block.empty {
+    background-color: rgba(255, 255, 255, 0.05);
+    opacity: 0.3;
+}
+
+.playback-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zoom-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-panel {
+  padding: 15px;
+}
+
+.edit-group {
+    margin-bottom: 10px;
+}
+
+.edit-group label {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.edit-group input {
+    width: 100%;
+    background: #333;
+    border: 1px solid #444;
+    color: white;
+    padding: 4px;
+    border-radius: 2px;
+}
