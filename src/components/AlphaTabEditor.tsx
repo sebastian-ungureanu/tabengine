@@ -18,13 +18,27 @@ export interface AlphaTabEditorRef {
   setTabRhythmMode: (rhythmMode: alphaTab.TabRhythmMode, tracks?: alphaTab.model.Track[]) => void;
   setZoom: (zoom: number) => void;
   setPlaybackSpeed: (speed: number) => void;
-  seekToTick: (tick: number) => void;
+  seekToTick: (tick: number, options?: { scrollToCursor?: boolean }) => void;
   api: alphaTab.AlphaTabApi | null;
 }
+
+const getBeatPlaybackTick = (beat: alphaTab.model.Beat) => {
+  const bar = beat.voice.bar;
+  const masterBars = bar.staff.track.score.masterBars;
+  let barStart = 0;
+
+  for (let i = 0; i < bar.index; i++) {
+    barStart += masterBars[i]?.calculateDuration() ?? 0;
+  }
+
+  return barStart + beat.playbackStart;
+};
 
 const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<alphaTab.AlphaTabApi | null>(null);
+  const pendingSeekScrollTickRef = useRef<number | null>(null);
+  const suppressCursorScrollUntilRef = useRef(0);
   const propsRef = useRef(props);
   propsRef.current = props;
 
@@ -78,7 +92,20 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
       }
     };
 
+    const shouldIgnoreCursorScroll = (beatBounds: alphaTab.rendering.BeatBounds) => {
+      if (performance.now() < suppressCursorScrollUntilRef.current) return true;
+
+      const pendingTick = pendingSeekScrollTickRef.current;
+      if (pendingTick === null) return false;
+
+      const beatTick = getBeatPlaybackTick(beatBounds.beat);
+      const beatEndTick = beatTick + Math.max(1, beatBounds.beat.playbackDuration || 1);
+      return pendingTick < beatTick || pendingTick >= beatEndTick;
+    };
+
     const scrollBeatIntoView = (beatBounds: alphaTab.rendering.BeatBounds, force = false) => {
+      if (shouldIgnoreCursorScroll(beatBounds)) return;
+
       const scrollContainer = containerRef.current?.closest('.editor-container') as HTMLElement | null;
       const surfaceContainer = containerRef.current?.parentElement;
       if (!scrollContainer || !surfaceContainer) return;
@@ -106,9 +133,11 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
         scrollContainer.scrollTo({
           top: nextTop,
           left: nextLeft,
-          behavior: 'smooth'
+          behavior: force ? 'auto' : 'smooth'
         });
       }
+
+      pendingSeekScrollTickRef.current = null;
     };
 
     api.customScrollHandler = {
@@ -203,10 +232,20 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
             apiRef.current.playbackSpeed = speed;
         }
     },
-    seekToTick: (tick: number) => {
+    seekToTick: (tick: number, options?: { scrollToCursor?: boolean }) => {
       if (apiRef.current) {
+        const shouldScroll = options?.scrollToCursor !== false;
+        pendingSeekScrollTickRef.current = shouldScroll ? tick : null;
+        suppressCursorScrollUntilRef.current = shouldScroll ? 0 : performance.now() + 250;
         apiRef.current.tickPosition = tick;
-        window.setTimeout(() => apiRef.current?.scrollToCursor(), 0);
+        if (shouldScroll) {
+          window.setTimeout(() => {
+            if (pendingSeekScrollTickRef.current === tick) {
+              apiRef.current?.scrollToCursor();
+              pendingSeekScrollTickRef.current = null;
+            }
+          }, 120);
+        }
       }
     },
     get api() {

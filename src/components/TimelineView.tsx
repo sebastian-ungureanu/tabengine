@@ -38,8 +38,15 @@ export interface TrackSettings {
 
 interface TimelineViewProps {
     score: alphaTab.model.Score | null;
+    orderedTrackIndices: number[];
     activeTracks: number[];
     onToggleTrack: (trackIndex: number) => void;
+    draggedTrackIndex: number | null;
+    trackDropIndex: number | null;
+    onTrackDragStart: (event: React.DragEvent<HTMLElement>, trackIndex: number) => void;
+    onTrackDragOver: (event: React.DragEvent<HTMLElement>, trackIndex: number) => void;
+    onTrackDrop: (event: React.DragEvent<HTMLElement>, trackIndex: number) => void;
+    onTrackDragEnd: () => void;
     currentTick: number;
     onSeek: (tick: number) => void;
     timelineMode: 'bars' | 'timeline';
@@ -50,28 +57,73 @@ interface TimelineViewProps {
     onSelectionModeChange: (mode: 'single' | 'multi') => void;
     trackSettings: Record<number, TrackSettings>;
     onTrackSettingsChange: (trackIndex: number, settings: Partial<TrackSettings>) => void;
+    onRenameTrack: (trackIndex: number, nextName: string) => void;
 }
 
+const MIN_TIMELINE_TRACK_HEIGHT = 34;
+const COMPACT_TRACK_COUNT_LIMIT = 6;
+const TIMELINE_HEADER_HEIGHT = 46;
+const TIMELINE_RULER_HEIGHT = 26;
+const DEFAULT_TIMELINE_HEIGHT = 300;
+const MIN_TIMELINE_LABEL_WIDTH = 258;
+
+const getInitialTimelineHeight = (score: alphaTab.model.Score | null) => {
+    const trackCount = score?.tracks.length || 0;
+    if (trackCount > 0 && trackCount < COMPACT_TRACK_COUNT_LIMIT) {
+        return TIMELINE_HEADER_HEIGHT + TIMELINE_RULER_HEIGHT + (trackCount * MIN_TIMELINE_TRACK_HEIGHT);
+    }
+    return DEFAULT_TIMELINE_HEIGHT;
+};
+
+const getBeatPlaybackTick = (beat: alphaTab.model.Beat, barStartTicks: number[]) => {
+    const barIndex = beat.voice.bar.index;
+    return (barStartTicks[barIndex] || 0) + beat.playbackStart;
+};
+
+const RenameIcon = () => (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m4 20 4.7-1.1L19.6 8a2.1 2.1 0 0 0 0-3l-.6-.6a2.1 2.1 0 0 0-3 0L5.1 15.3 4 20Z" />
+        <path d="m14.5 5.5 4 4" />
+    </svg>
+);
+
 const TimelineView: React.FC<TimelineViewProps> = ({ 
-    score, activeTracks, onToggleTrack, currentTick, onSeek, timelineMode, onTimelineModeChange,
+    score, orderedTrackIndices, activeTracks, onToggleTrack,
+    draggedTrackIndex, trackDropIndex, onTrackDragStart, onTrackDragOver, onTrackDrop, onTrackDragEnd,
+    currentTick, onSeek, timelineMode, onTimelineModeChange,
     snapToBarStart, onSnapToBarStartChange, selectionMode, onSelectionModeChange,
-    trackSettings, onTrackSettingsChange
+    trackSettings, onTrackSettingsChange, onRenameTrack
 }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
     const visualRef = useRef<HTMLDivElement>(null);
-    const [height, setHeight] = React.useState(300);
+    const [height, setHeight] = React.useState(() => getInitialTimelineHeight(score));
+    const [trackInfoWidth, setTrackInfoWidth] = React.useState(MIN_TIMELINE_LABEL_WIDTH);
+    const [editingTrackIndex, setEditingTrackIndex] = React.useState<number | null>(null);
+    const [draftTrackName, setDraftTrackName] = React.useState('');
     const isResizing = useRef(false);
+    const isColumnResizing = useRef(false);
+    const didCancelRename = useRef(false);
 
     React.useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
-            if (!isResizing.current) return;
-            const newHeight = window.innerHeight - e.clientY;
-            if (newHeight > 100 && newHeight < window.innerHeight * 0.7) {
-                setHeight(newHeight);
+            if (isResizing.current) {
+                const newHeight = window.innerHeight - e.clientY;
+                if (newHeight > 100 && newHeight < window.innerHeight * 0.7) {
+                    setHeight(newHeight);
+                }
+            }
+
+            if (isColumnResizing.current && containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                const requestedWidth = e.clientX - rect.left;
+                const maxWidth = Math.max(MIN_TIMELINE_LABEL_WIDTH, rect.width - 360);
+                setTrackInfoWidth(Math.min(maxWidth, Math.max(MIN_TIMELINE_LABEL_WIDTH, requestedWidth)));
             }
         };
 
         const handleMouseUp = () => {
             isResizing.current = false;
+            isColumnResizing.current = false;
             document.body.style.cursor = 'default';
         };
 
@@ -82,6 +134,19 @@ const TimelineView: React.FC<TimelineViewProps> = ({
             window.removeEventListener('mouseup', handleMouseUp);
         };
     }, []);
+
+    const orderedTracks = React.useMemo(() => {
+        if (!score) return [];
+        const trackByIndex = new Map(score.tracks.map(track => [track.index, track]));
+        const ordered = orderedTrackIndices
+            .map(trackIndex => trackByIndex.get(trackIndex))
+            .filter((track): track is alphaTab.model.Track => Boolean(track));
+        const orderedIds = new Set(ordered.map(track => track.index));
+        return [
+            ...ordered,
+            ...score.tracks.filter(track => !orderedIds.has(track.index))
+        ];
+    }, [score, orderedTrackIndices]);
 
     const timelineData = React.useMemo(() => {
         if (!score) {
@@ -102,7 +167,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
             totalTicks += masterBar.calculateDuration();
         });
         const firstNoteTicks = Array.from({ length: totalBars }, () => Number.POSITIVE_INFINITY);
-        const timelineTracks = score.tracks.map(track => {
+        const timelineTracks = orderedTracks.map(track => {
             const barStates: BarState[] = [];
             const rawNoteEvents: Array<MidiNoteEvent & { pitch: number }> = [];
 
@@ -116,7 +181,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                             if (beat.notes.length === 0) return;
                             hasNotes = true;
 
-                            const start = Math.max(0, beat.absolutePlaybackStart || beat.playbackStart || 0);
+                            const start = Math.max(0, getBeatPlaybackTick(beat, barStartTicks));
                             const duration = Math.max(30, beat.playbackDuration || 60);
                             firstNoteTicks[i] = Math.min(firstNoteTicks[i], start);
                             beat.notes.forEach((note: alphaTab.model.Note) => {
@@ -154,7 +219,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         ));
 
         return { totalBars, totalTicks, barStartTicks, barSnapTicks, timelineTracks };
-    }, [score]);
+    }, [score, orderedTracks]);
 
     if (!score) return (
         <div className="timeline-container" style={{ height: `${height}px` }}>
@@ -213,13 +278,51 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         onSeek(Math.floor(barSnapTicks[clickedBarIndex] ?? clickedTick));
     };
 
+    const startRenamingTrack = (track: alphaTab.model.Track) => {
+        didCancelRename.current = false;
+        setEditingTrackIndex(track.index);
+        setDraftTrackName(track.name);
+    };
+
+    const commitRenamingTrack = (trackIndex: number) => {
+        if (didCancelRename.current) {
+            didCancelRename.current = false;
+            return;
+        }
+
+        onRenameTrack(trackIndex, draftTrackName);
+        setEditingTrackIndex(null);
+    };
+
+    const cancelRenamingTrack = () => {
+        didCancelRename.current = true;
+        setEditingTrackIndex(null);
+        setDraftTrackName('');
+    };
+
     return (
-        <div className="timeline-container" style={{ height: `${height}px` }}>
+        <div
+            className="timeline-container"
+            ref={containerRef}
+            style={{
+                height: `${height}px`,
+                '--timeline-label-width': `${trackInfoWidth}px`
+            } as React.CSSProperties}
+        >
             <div 
                 className="timeline-resizer" 
                 onMouseDown={() => {
                     isResizing.current = true;
                     document.body.style.cursor = 'ns-resize';
+                }}
+            />
+            <div
+                className="timeline-column-resizer"
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    isColumnResizing.current = true;
+                    document.body.style.cursor = 'ew-resize';
                 }}
             />
             <div className="timeline-header">
@@ -240,27 +343,33 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                     </button>
                 </div>
                 <div className="timeline-toolstrip">
-                    <button
-                        className={snapToBarStart ? 'active' : ''}
-                        type="button"
-                        onClick={() => onSnapToBarStartChange(!snapToBarStart)}
-                    >
-                        Snap to bar start
-                    </button>
-                    <button
-                        className={selectionMode === 'single' ? 'active' : ''}
-                        type="button"
-                        onClick={() => onSelectionModeChange('single')}
-                    >
-                        Single
-                    </button>
-                    <button
-                        className={selectionMode === 'multi' ? 'active' : ''}
-                        type="button"
-                        onClick={() => onSelectionModeChange('multi')}
-                    >
-                        Multi
-                    </button>
+                    <div className="timeline-tool-group">
+                        <span className="timeline-tool-label">Playhead behavior:</span>
+                        <button
+                            className={snapToBarStart ? 'active' : ''}
+                            type="button"
+                            onClick={() => onSnapToBarStartChange(!snapToBarStart)}
+                        >
+                            Snap to bar start
+                        </button>
+                    </div>
+                    <div className="timeline-tool-group">
+                        <span className="timeline-tool-label">Track selection:</span>
+                        <button
+                            className={selectionMode === 'single' ? 'active' : ''}
+                            type="button"
+                            onClick={() => onSelectionModeChange('single')}
+                        >
+                            Single
+                        </button>
+                        <button
+                            className={selectionMode === 'multi' ? 'active' : ''}
+                            type="button"
+                            onClick={() => onSelectionModeChange('multi')}
+                        >
+                            Multi
+                        </button>
+                    </div>
                 </div>
                 <div className="timeline-meta">
                     <span>Bar {currentBarNumber}</span>
@@ -288,17 +397,72 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                         style={{ left: `${playheadPosition}%` }}
                     />
                 </div>
-                {timelineTracks.map(({ track, barStates, noteEvents }) => {
+                {timelineTracks.map(({ track, barStates, noteEvents }, trackPosition) => {
                     const settings = trackSettings[track.index] || { volume: 8, pan: 0, mute: false, solo: false };
                     const instrumentCategory = getInstrumentCategory(track);
                     const instrumentColor = INSTRUMENT_COLORS[instrumentCategory];
                     return (
-                        <div key={track.index} className="timeline-track-row">
+                        <div
+                            key={track.index}
+                            className={[
+                                'timeline-track-row',
+                                track.index === draggedTrackIndex ? 'dragging' : '',
+                                track.index === trackDropIndex && track.index !== draggedTrackIndex ? 'drop-target' : ''
+                            ].filter(Boolean).join(' ')}
+                            draggable={editingTrackIndex !== track.index}
+                            onDragStart={(event) => onTrackDragStart(event, track.index)}
+                            onDragOver={(event) => onTrackDragOver(event, track.index)}
+                            onDrop={(event) => onTrackDrop(event, track.index)}
+                            onDragEnd={onTrackDragEnd}
+                        >
                             <div className={`timeline-track-info ${activeTracks.includes(track.index) ? 'active' : ''}`}>
                                 <InstrumentIcon track={track} className="timeline-track-icon" />
-                                <div className="track-name" onClick={() => onToggleTrack(track.index)}>
-                                    <strong>{track.index + 1}. {track.name}</strong>
-                                </div>
+                                {editingTrackIndex === track.index ? (
+                                    <input
+                                        className="timeline-track-name-input"
+                                        value={draftTrackName}
+                                        onChange={(event) => setDraftTrackName(event.target.value)}
+                                        onBlur={() => commitRenamingTrack(track.index)}
+                                        onClick={(event) => event.stopPropagation()}
+                                        onMouseDown={(event) => event.stopPropagation()}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter') {
+                                                event.preventDefault();
+                                                commitRenamingTrack(track.index);
+                                            }
+                                            if (event.key === 'Escape') {
+                                                event.preventDefault();
+                                                cancelRenamingTrack();
+                                            }
+                                        }}
+                                        ref={(input) => {
+                                            if (input && document.activeElement !== input) {
+                                                requestAnimationFrame(() => {
+                                                    input.focus();
+                                                    input.select();
+                                                });
+                                            }
+                                        }}
+                                        aria-label={`Rename ${track.name}`}
+                                    />
+                                ) : (
+                                    <div className="track-name" onClick={() => onToggleTrack(track.index)}>
+                                        <strong>{trackPosition + 1}. {track.name}</strong>
+                                    </div>
+                                )}
+                                <button
+                                    className="timeline-rename-button"
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        startRenamingTrack(track);
+                                    }}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                    aria-label={`Rename ${track.name}`}
+                                    title={`Rename ${track.name}`}
+                                >
+                                    <RenameIcon />
+                                </button>
                                 <div className="track-controls">
                                     <button 
                                         className={`control-btn solo ${settings.solo ? 'active' : ''}`}
@@ -334,7 +498,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                             </div>
                             <div
                                 className={`timeline-visual ${timelineMode === 'timeline' ? 'timeline-visual-notes' : ''}`}
-                                ref={track.index === 0 ? visualRef : null}
+                                ref={timelineTracks[0]?.track.index === track.index ? visualRef : null}
                                 onClick={handleTimelineClick}
                             >
                                 {timelineMode === 'bars'

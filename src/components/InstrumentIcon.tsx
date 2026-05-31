@@ -1,5 +1,5 @@
 import * as alphaTab from '@coderline/alphatab';
-import { getInstrumentCategory, INSTRUMENT_COLORS, type InstrumentCategory } from '../utils/instruments';
+import { getInstrumentCategory, type InstrumentCategory } from '../utils/instruments';
 
 interface InstrumentIconProps {
   track?: alphaTab.model.Track | null;
@@ -50,13 +50,11 @@ const getIconFileName = (track: alphaTab.model.Track | null | undefined, categor
 
 const InstrumentIcon = ({ track, className = '' }: InstrumentIconProps) => {
   const category = getInstrumentCategory(track);
-  const color = INSTRUMENT_COLORS[category];
   const iconFileName = getIconFileName(track, category);
 
   return (
     <span
       className={`instrument-type-icon ${className}`}
-      style={{ borderColor: color, color }}
       title={category}
       aria-label={category}
     >

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import * as alphaTab from '@coderline/alphatab';
 import AlphaTabEditor, { type AlphaTabEditorRef } from './components/AlphaTabEditor';
 import InstrumentIcon from './components/InstrumentIcon';
@@ -6,12 +6,20 @@ import TimelineView, { type TrackSettings } from './components/TimelineView';
 import { getInstrumentCategory } from './utils/instruments';
 import './App.css';
 
-type IconName = 'skip-back' | 'rewind' | 'play' | 'pause' | 'fast-forward' | 'stop' | 'minus' | 'plus' | 'metronome' | 'reset' | 'song-prev' | 'song-next' | 'trash';
+type IconName = 'skip-back' | 'rewind' | 'play' | 'pause' | 'fast-forward' | 'stop' | 'minus' | 'plus' | 'arrow-up' | 'arrow-down' | 'metronome' | 'reset' | 'song-prev' | 'song-next' | 'trash' | 'fullscreen' | 'fullscreen-exit';
 
 interface TrackLyrics {
   trackIndex: number;
   trackName: string;
   lines: string[];
+}
+
+interface SongChord {
+  id: string;
+  name: string;
+  barNumber: number;
+  trackName: string;
+  tick: number;
 }
 
 interface PlaylistSong {
@@ -26,6 +34,8 @@ interface PlaylistSong {
 
 interface SelectedNoteSnapshot {
   fret: number;
+  string: number;
+  stringCount: number;
   vibrato: boolean;
   bend: boolean;
   slide: boolean;
@@ -57,6 +67,8 @@ const TECHNIQUES: Array<{ id: TechniqueId; label: string }> = [
 ];
 
 const HAMMER_PULL_LOOKUP_BAR_OFFSET = 3;
+const MIN_FRET = 0;
+const MAX_FRET = 24;
 
 const cloneScoreSource = (source: unknown) => {
   return source instanceof ArrayBuffer ? source.slice(0) : source;
@@ -73,6 +85,19 @@ const isDefaultTrackTypeMatch = (track: alphaTab.model.Track, defaultTrackType: 
     case 'drums':
       return category === 'Percussion';
   }
+};
+
+const getTracksInOrder = (loadedScore: alphaTab.model.Score | null, order: number[]) => {
+  if (!loadedScore) return [];
+  const trackByIndex = new Map(loadedScore.tracks.map(track => [track.index, track]));
+  const ordered = order
+    .map(trackIndex => trackByIndex.get(trackIndex))
+    .filter((track): track is alphaTab.model.Track => Boolean(track));
+  const orderedIds = new Set(ordered.map(track => track.index));
+  return [
+    ...ordered,
+    ...loadedScore.tracks.filter(track => !orderedIds.has(track.index))
+  ];
 };
 
 const Icon = ({ name }: { name: IconName }) => {
@@ -130,6 +155,20 @@ const Icon = ({ name }: { name: IconName }) => {
           <path d="M5 12h14" />
         </svg>
       );
+    case 'arrow-up':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 19V5" />
+          <path d="m5 12 7-7 7 7" />
+        </svg>
+      );
+    case 'arrow-down':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14" />
+          <path d="m19 12-7 7-7-7" />
+        </svg>
+      );
     case 'metronome':
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -169,6 +208,32 @@ const Icon = ({ name }: { name: IconName }) => {
           <path d="M14 11v6" />
         </svg>
       );
+    case 'fullscreen':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 3H3v5" />
+          <path d="M3 3l7 7" />
+          <path d="M16 3h5v5" />
+          <path d="m21 3-7 7" />
+          <path d="M8 21H3v-5" />
+          <path d="m3 21 7-7" />
+          <path d="M16 21h5v-5" />
+          <path d="m21 21-7-7" />
+        </svg>
+      );
+    case 'fullscreen-exit':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 3v6H3" />
+          <path d="m3 9 6-6" />
+          <path d="M15 3v6h6" />
+          <path d="m21 9-6-6" />
+          <path d="M9 21v-6H3" />
+          <path d="m3 15 6 6" />
+          <path d="M15 21v-6h6" />
+          <path d="m21 15-6 6" />
+        </svg>
+      );
   }
 };
 
@@ -176,6 +241,18 @@ const cleanLyricLine = (line: string) => line
   .replace(/\s+/g, ' ')
   .replace(/\s+([,.;:!?])/g, '$1')
   .trim();
+
+const getBeatPlaybackTick = (beat: alphaTab.model.Beat) => {
+  const bar = beat.voice.bar;
+  const masterBars = bar.staff.track.score.masterBars;
+  let barStart = 0;
+
+  for (let i = 0; i < bar.index; i++) {
+    barStart += masterBars[i]?.calculateDuration() ?? 0;
+  }
+
+  return barStart + beat.playbackStart;
+};
 
 const extractLyricsFromScore = (loadedScore: alphaTab.model.Score): TrackLyrics[] => {
   return loadedScore.tracks
@@ -206,6 +283,42 @@ const extractLyricsFromScore = (loadedScore: alphaTab.model.Score): TrackLyrics[
       };
     })
     .filter(track => track.lines.length > 0);
+};
+
+const extractChordsFromScore = (loadedScore: alphaTab.model.Score | null): SongChord[] => {
+  if (!loadedScore) return [];
+
+  const chords: SongChord[] = [];
+  const seen = new Set<string>();
+
+  loadedScore.tracks.forEach(track => {
+    track.staves.forEach(staff => {
+      staff.bars.forEach(bar => {
+        bar.voices.forEach(voice => {
+          voice.beats.forEach((beat: alphaTab.model.Beat) => {
+            const chord = beat.chord || (beat.chordId ? staff.getChord(beat.chordId) : null);
+            const chordName = chord?.name?.trim() || beat.chordId?.trim();
+            if (!chordName) return;
+
+            const tick = Math.max(0, getBeatPlaybackTick(beat));
+            const key = `${track.index}-${bar.index}-${tick}-${chordName}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            chords.push({
+              id: key,
+              name: chordName,
+              barNumber: bar.index + 1,
+              trackName: track.name,
+              tick
+            });
+          });
+        });
+      });
+    });
+  });
+
+  return chords.sort((a, b) => a.tick - b.tick || a.trackName.localeCompare(b.trackName) || a.name.localeCompare(b.name));
 };
 
 const findHammerPullOriginForNote = (note: alphaTab.model.Note) => {
@@ -245,6 +358,8 @@ const createSelectedNoteSnapshot = (note: alphaTab.model.Note | null): SelectedN
 
   return {
     fret: note.fret,
+    string: note.string,
+    stringCount: note.beat.voice.bar.staff.tuning.length,
     vibrato: note.vibrato !== alphaTab.model.VibratoType.None,
     bend: note.bendType !== alphaTab.model.BendType.None || note.hasBend,
     slide: note.slideOutType !== alphaTab.model.SlideOutType.None || !!note.slideTarget,
@@ -259,6 +374,7 @@ const createSelectedNoteSnapshot = (note: alphaTab.model.Note | null): SelectedN
 };
 
 function App() {
+  const appContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<AlphaTabEditorRef>(null);
   const playlistIdRef = useRef(0);
   const pendingPlaylistLoadRef = useRef<{
@@ -269,25 +385,10 @@ function App() {
   const [score, setScore] = useState<alphaTab.model.Score | null>(null);
   const [appView, setAppView] = useState<'main' | 'preferences'>('main');
   const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState<'tabs' | 'chords' | 'lyrics'>('tabs');
   const [rightPanelTab, setRightPanelTab] = useState<'song' | 'playlist'>('song');
   const [trackLyrics, setTrackLyrics] = useState<TrackLyrics[]>([]);
-
-  // Keyboard shortcut listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.code === 'Space') {
-            const target = e.target as HTMLElement;
-            // Ignore if typing in an input or textarea
-            if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-                editorRef.current?.playPause();
-            }
-        }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const [activeTracks, setActiveTracks] = useState<number[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -307,13 +408,56 @@ function App() {
   const [defaultTrackType, setDefaultTrackType] = useState<DefaultTrackType>('guitar');
   const [playlist, setPlaylist] = useState<PlaylistSong[]>([]);
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+  const [draggedPlaylistId, setDraggedPlaylistId] = useState<string | null>(null);
+  const [playlistDropId, setPlaylistDropId] = useState<string | null>(null);
+  const [trackOrder, setTrackOrder] = useState<number[]>([]);
+  const [draggedTrackIndex, setDraggedTrackIndex] = useState<number | null>(null);
+  const [trackDropIndex, setTrackDropIndex] = useState<number | null>(null);
+  const [trackNameRevision, setTrackNameRevision] = useState(0);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === appContainerRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const setSelectedNote = (note: alphaTab.model.Note | null) => {
     selectedNoteRef.current = note;
     setSelectedNoteSnapshot(createSelectedNoteSnapshot(note));
   };
 
-  const selectedTrack = score?.tracks.find(track => activeTracks.includes(track.index)) ?? score?.tracks[0] ?? null;
+  const isTypingTarget = (target: EventTarget | null) => {
+    const element = target as HTMLElement | null;
+    return Boolean(
+      element &&
+      (
+        element.tagName === 'INPUT' ||
+        element.tagName === 'TEXTAREA' ||
+        element.tagName === 'SELECT' ||
+        element.isContentEditable
+      )
+    );
+  };
+
+  const orderedTracks = useMemo(() => {
+    void trackNameRevision;
+    return getTracksInOrder(score, trackOrder);
+  }, [score, trackOrder, trackNameRevision]);
+  const selectedTrack = orderedTracks.find(track => activeTracks.includes(track.index)) ?? orderedTracks[0] ?? null;
+  const songChords = useMemo(() => {
+    void trackNameRevision;
+    return extractChordsFromScore(score);
+  }, [score, trackNameRevision]);
+  const chordCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    songChords.forEach(chord => counts.set(chord.name, (counts.get(chord.name) || 0) + 1));
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [songChords]);
   const selectedTrackSettings = selectedTrack
     ? trackSettings[selectedTrack.index] || { volume: 8, pan: 0, mute: false, solo: false }
     : { volume: 8, pan: 0, mute: false, solo: false };
@@ -332,6 +476,14 @@ function App() {
   const nextPlaylistSong = activePlaylistIndex >= 0 && activePlaylistIndex < playlist.length - 1
     ? playlist[activePlaylistIndex + 1]
     : null;
+
+  useEffect(() => {
+    if (!score || !editorRef.current || activeTracks.length === 0) return;
+    const tracksToRender = orderedTracks.filter(track => activeTracks.includes(track.index));
+    if (tracksToRender.length) {
+      editorRef.current.renderTracks(tracksToRender);
+    }
+  }, [score, orderedTracks, activeTracks]);
 
   const formatTime = (milliseconds: number) => {
     const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -396,6 +548,7 @@ function App() {
       loadedScore.tracks
     );
     setPlaybackTime({ currentTime: 0, endTime: 0, tempo: loadedScore.tempo || 100 });
+    setTrackOrder(loadedScore.tracks.map(track => track.index));
     setActivePlaylistId(playlistId);
     setPlaylist(prev => {
       const nextSong: PlaylistSong = {
@@ -462,6 +615,48 @@ function App() {
     }
   };
 
+  const clearPlaylistDragState = () => {
+    setDraggedPlaylistId(null);
+    setPlaylistDropId(null);
+  };
+
+  const handlePlaylistDragStart = (event: React.DragEvent<HTMLDivElement>, song: PlaylistSong) => {
+    setDraggedPlaylistId(song.id);
+    setPlaylistDropId(song.id);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', song.id);
+  };
+
+  const handlePlaylistDragOver = (event: React.DragEvent<HTMLDivElement>, song: PlaylistSong) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (playlistDropId !== song.id) {
+      setPlaylistDropId(song.id);
+    }
+  };
+
+  const handlePlaylistDrop = (event: React.DragEvent<HTMLDivElement>, targetSong: PlaylistSong) => {
+    event.preventDefault();
+    const sourceId = draggedPlaylistId || event.dataTransfer.getData('text/plain');
+
+    if (!sourceId || sourceId === targetSong.id) {
+      clearPlaylistDragState();
+      return;
+    }
+
+    setPlaylist(prev => {
+      const sourceIndex = prev.findIndex(song => song.id === sourceId);
+      const targetIndex = prev.findIndex(song => song.id === targetSong.id);
+      if (sourceIndex < 0 || targetIndex < 0) return prev;
+
+      const next = [...prev];
+      const [movedSong] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, movedSong);
+      return next;
+    });
+    clearPlaylistDragState();
+  };
+
   const formatSongPreview = (song: PlaylistSong | null) => {
     if (!song) return 'No song';
     return song.artist && song.artist !== 'Unknown Artist'
@@ -476,8 +671,61 @@ function App() {
       setSelectedNote(null);
     }
     // Seek to the beat when clicked in the notation view
-    onSeek(beat.playbackStart);
+    onSeek(getBeatPlaybackTick(beat), { scrollToCursor: false });
   };
+
+  const getTrackNotesInPlaybackOrder = (track: alphaTab.model.Track) => {
+      return track.staves
+          .flatMap(staff => staff.bars.flatMap(bar => (
+              bar.voices.flatMap(voice => (
+                  voice.beats.flatMap(beat => beat.notes)
+              ))
+          )))
+          .sort((a, b) => {
+              const startDelta = getBeatPlaybackTick(a.beat) - getBeatPlaybackTick(b.beat);
+              if (startDelta !== 0) return startDelta;
+              return a.index - b.index;
+          });
+  };
+
+  const moveSelectedNoteBy = (offset: number) => {
+      const note = selectedNoteRef.current;
+      if (!note) return;
+
+      const notes = getTrackNotesInPlaybackOrder(note.beat.voice.bar.staff.track);
+      const currentIndex = notes.findIndex(candidate => candidate === note);
+      const nextNote = notes[currentIndex + offset];
+      if (!nextNote) return;
+
+      setSelectedNote(nextNote);
+      onSeek(getBeatPlaybackTick(nextNote.beat));
+  };
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (isTypingTarget(e.target)) return;
+
+        if (e.code === 'Space') {
+            e.preventDefault();
+            editorRef.current?.playPause();
+            return;
+        }
+
+        if (e.code === 'ArrowLeft' && selectedNoteRef.current) {
+            e.preventDefault();
+            moveSelectedNoteBy(-1);
+            return;
+        }
+
+        if (e.code === 'ArrowRight' && selectedNoteRef.current) {
+            e.preventDefault();
+            moveSelectedNoteBy(1);
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
 
   const onPositionChanged = (args: alphaTab.synth.PositionChangedEventArgs) => {
       setCurrentTick(args.currentTick);
@@ -505,16 +753,16 @@ function App() {
       return tempoChange?.tempo || masterBar.tempo || score?.tempo || 100;
   };
 
-  const onSeek = (tick: number) => {
+  function onSeek(tick: number, options?: { scrollToCursor?: boolean }) {
       if (editorRef.current) {
-          editorRef.current.seekToTick(tick);
+          editorRef.current.seekToTick(tick, options);
       }
       setCurrentTick(tick);
       setPlaybackTime(prev => ({
           ...prev,
           tempo: Math.round(getFileTempoAtTick(tick) * playbackSpeed)
       }));
-  };
+  }
 
   const getBarStartTicks = () => {
       if (!score) return [];
@@ -588,14 +836,66 @@ function App() {
     }
     
     if (newTracks.length === 0 && score) {
-        newTracks = [score.tracks[0].index];
+        newTracks = [orderedTracks[0]?.index ?? score.tracks[0].index];
     }
 
     setActiveTracks(newTracks);
-    if (editorRef.current && score) {
-        const tracksToRender = score.tracks.filter(t => newTracks.includes(t.index));
-        editorRef.current.renderTracks(tracksToRender);
-    }
+  };
+
+  const reorderTracks = (sourceTrackIndex: number, targetTrackIndex: number) => {
+      if (!score || sourceTrackIndex === targetTrackIndex) return;
+
+      const baseOrder = getTracksInOrder(score, trackOrder).map(track => track.index);
+      const sourceIndex = baseOrder.indexOf(sourceTrackIndex);
+      const targetIndex = baseOrder.indexOf(targetTrackIndex);
+      if (sourceIndex < 0 || targetIndex < 0) return;
+
+      const nextOrder = [...baseOrder];
+      const [movedTrack] = nextOrder.splice(sourceIndex, 1);
+      nextOrder.splice(targetIndex, 0, movedTrack);
+      setTrackOrder(nextOrder);
+  };
+
+  const clearTrackDragState = () => {
+      setDraggedTrackIndex(null);
+      setTrackDropIndex(null);
+  };
+
+  const handleTrackDragStart = (event: React.DragEvent<HTMLElement>, trackIndex: number) => {
+      setDraggedTrackIndex(trackIndex);
+      setTrackDropIndex(trackIndex);
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(trackIndex));
+  };
+
+  const handleTrackDragOver = (event: React.DragEvent<HTMLElement>, trackIndex: number) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      if (trackDropIndex !== trackIndex) {
+          setTrackDropIndex(trackIndex);
+      }
+  };
+
+  const handleTrackDrop = (event: React.DragEvent<HTMLElement>, trackIndex: number) => {
+      event.preventDefault();
+      const sourceTrackIndex = draggedTrackIndex ?? Number(event.dataTransfer.getData('text/plain'));
+      if (!Number.isFinite(sourceTrackIndex)) {
+          clearTrackDragState();
+          return;
+      }
+
+      reorderTracks(sourceTrackIndex, trackIndex);
+      clearTrackDragState();
+  };
+
+  const renameTrack = (trackIndex: number, nextName: string) => {
+      if (!score) return;
+      const track = score.tracks.find(item => item.index === trackIndex);
+      const trimmedName = nextName.trim();
+      if (!track || !trimmedName || track.name === trimmedName) return;
+
+      track.name = trimmedName;
+      setTrackNameRevision(revision => revision + 1);
   };
 
   const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -630,17 +930,17 @@ function App() {
       setShowTablature(nextShowTablature);
 
       if (score) {
-          const tracksToRender = score.tracks.filter(t => activeTracks.includes(t.index));
+          const tracksToRender = orderedTracks.filter(t => activeTracks.includes(t.index));
           editorRef.current?.setNotationVisibility(
               nextShowStandardNotation,
               nextShowTablature,
-              tracksToRender.length ? tracksToRender : score.tracks
+              tracksToRender.length ? tracksToRender : orderedTracks
           );
           editorRef.current?.setTabRhythmMode(
               nextShowTablature && !nextShowStandardNotation
                   ? showTabNoteDurations ? alphaTab.TabRhythmMode.ShowWithBeams : alphaTab.TabRhythmMode.Hidden
                   : alphaTab.TabRhythmMode.Automatic,
-              tracksToRender.length ? tracksToRender : score.tracks
+              tracksToRender.length ? tracksToRender : orderedTracks
           );
       }
   };
@@ -650,22 +950,33 @@ function App() {
 
       if (!score || !showTablature || showStandardNotation) return;
 
-      const tracksToRender = score.tracks.filter(t => activeTracks.includes(t.index));
+      const tracksToRender = orderedTracks.filter(t => activeTracks.includes(t.index));
       editorRef.current?.setTabRhythmMode(
           nextShowTabNoteDurations ? alphaTab.TabRhythmMode.ShowWithBeams : alphaTab.TabRhythmMode.Hidden,
-          tracksToRender.length ? tracksToRender : score.tracks
+          tracksToRender.length ? tracksToRender : orderedTracks
       );
   };
 
   const updateFret = (fret: number) => {
       const note = selectedNoteRef.current;
       if(note && editorRef.current?.api) {
-          note.fret = fret;
+          note.fret = Math.max(MIN_FRET, Math.min(MAX_FRET, fret));
           editorRef.current.api.score?.finish(editorRef.current.api.settings);
           editorRef.current.api.render();
           setSelectedNoteSnapshot(createSelectedNoteSnapshot(note));
       }
   }
+
+  const moveSelectedNoteToString = (stringOffset: number) => {
+      const note = selectedNoteRef.current;
+      if (!note || !editorRef.current?.api) return;
+
+      const stringCount = note.beat.voice.bar.staff.tuning.length;
+      note.string = Math.max(1, Math.min(stringCount, note.string + stringOffset));
+      editorRef.current.api.score?.finish(editorRef.current.api.settings);
+      editorRef.current.api.render();
+      setSelectedNoteSnapshot(createSelectedNoteSnapshot(note));
+  };
 
   const rerenderEditedNote = () => {
       const api = editorRef.current?.api;
@@ -864,8 +1175,17 @@ function App() {
     setIsAppMenuOpen(false);
   };
 
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      return;
+    }
+
+    appContainerRef.current?.requestFullscreen();
+  };
+
   return (
-    <div className="app-container">
+    <div className="app-container" ref={appContainerRef}>
       <main className="main-content">
         <header className="toolbar">
           <div className="app-menu">
@@ -969,7 +1289,7 @@ function App() {
           <div className="song-stats">
             <div className="tempo-control" aria-label="Tempo control">
               <span className="tempo-label">
-                <Icon name="metronome" />
+                <img src="/music-icons/icons8-metronome-100.png" alt="" />
                 Tempo
               </span>
               <input
@@ -1046,9 +1366,19 @@ function App() {
           <div className="file-actions">
             <button className="ghost-button" type="button" onClick={loadDemo}>Demo</button>
             <label className="file-input-label">
-              Load .gp
+              <img src="/music-icons/icons8-rhythm-100.png" alt="" />
+              Load song
               <input type="file" accept=".gp,.gp3,.gp4,.gp5,.gpx" onChange={handleFileChange} />
             </label>
+            <button
+              className="icon-button fullscreen-button"
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            >
+              <Icon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'} />
+            </button>
           </div>
         </header>
 
@@ -1101,43 +1431,73 @@ function App() {
                 <section className="panel-section tracks-section">
                   <div className="section-title-row">
                     <h2>Tracks</h2>
-                    <button className="icon-button" type="button" aria-label="Add track">+</button>
+                    <button className="icon-button" type="button" aria-label="Add track">
+                      <Icon name="plus" />
+                    </button>
                   </div>
                   <div className="side-track-list">
-                    {score ? score.tracks.map(track => {
+                    {score ? orderedTracks.map((track, trackPosition) => {
                       const settings = trackSettings[track.index] || { volume: 8, pan: 0, mute: false, solo: false };
                       const active = activeTracks.includes(track.index);
+                      const previousTrack = orderedTracks[trackPosition - 1];
+                      const nextTrack = orderedTracks[trackPosition + 1];
                       return (
-                        <div key={track.index} className={`side-track ${active ? 'active' : ''}`}>
+                        <div
+                          key={track.index}
+                          className={[
+                            'side-track',
+                            active ? 'active' : ''
+                          ].filter(Boolean).join(' ')}
+                        >
                           <div className="side-track-header">
+                            <div className="track-order-controls" aria-label={`Reorder ${track.name}`}>
+                              <button
+                                type="button"
+                                disabled={!previousTrack}
+                                onClick={() => previousTrack && reorderTracks(track.index, previousTrack.index)}
+                                aria-label={`Move ${track.name} up`}
+                                title="Move track up"
+                              >
+                                <Icon name="arrow-up" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!nextTrack}
+                                onClick={() => nextTrack && reorderTracks(track.index, nextTrack.index)}
+                                aria-label={`Move ${track.name} down`}
+                                title="Move track down"
+                              >
+                                <Icon name="arrow-down" />
+                              </button>
+                            </div>
                             <button className="track-main" type="button" onClick={() => toggleTrack(track.index)}>
                               <InstrumentIcon track={track} className="track-badge" />
                               <span>
-                                <strong>{track.index + 1}. {track.name}</strong>
+                                <strong>{trackPosition + 1}. {track.name}</strong>
                                 <small>{getInstrumentCategory(track)}</small>
                               </span>
                             </button>
-                            <button className={`mini-toggle ${settings.solo ? 'active' : ''}`} type="button" onClick={() => handleTrackSettingsChange(track.index, { solo: !settings.solo })}>S</button>
-                            <button className={`mini-toggle ${settings.mute ? 'active' : ''}`} type="button" onClick={() => handleTrackSettingsChange(track.index, { mute: !settings.mute })}>M</button>
+                            <button className={`mini-toggle solo ${settings.solo ? 'active' : ''}`} type="button" onClick={() => handleTrackSettingsChange(track.index, { solo: !settings.solo })}>S</button>
+                            <button className={`mini-toggle mute ${settings.mute ? 'active' : ''}`} type="button" onClick={() => handleTrackSettingsChange(track.index, { mute: !settings.mute })}>M</button>
                           </div>
                           <div className="side-track-controls">
-                            <label
-                              className="volume-knob-control"
-                              style={{ '--knob-value': `${(settings.volume / 15) * 100}%` } as React.CSSProperties}
-                            >
-                              <span className="control-label">Vol</span>
-                              <span className="volume-knob-face">{settings.volume}</span>
+                            <label className="track-mix-control">
+                              <span className="control-label">Vol {settings.volume}</span>
                               <input
                                 type="range"
                                 min="0"
                                 max="15"
                                 step="1"
                                 value={settings.volume}
+                                draggable={false}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onDragStart={(e) => e.preventDefault()}
                                 onChange={(e) => handleTrackSettingsChange(track.index, { volume: parseInt(e.target.value) })}
                                 aria-label={`${track.name} volume`}
                               />
                             </label>
-                            <label className="pan-slider-control">
+                            <label className="track-mix-control">
                               <span className="control-label">Pan {formatPan(settings.pan)}</span>
                               <input
                                 type="range"
@@ -1145,6 +1505,10 @@ function App() {
                                 max="10"
                                 step="1"
                                 value={settings.pan}
+                                draggable={false}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onDragStart={(e) => e.preventDefault()}
                                 onChange={(e) => handleTrackSettingsChange(track.index, { pan: parseInt(e.target.value) })}
                                 aria-label={`${track.name} pan`}
                               />
@@ -1156,7 +1520,10 @@ function App() {
                       <div className="empty-panel-state">Load a Guitar Pro file to populate tracks.</div>
                     )}
                   </div>
-                  <button className="add-track-button" type="button">+ Add Track</button>
+                  <button className="add-track-button" type="button">
+                    <Icon name="plus" />
+                    Add track
+                  </button>
                 </section>
 
                 <section className="panel-section info-section">
@@ -1174,15 +1541,53 @@ function App() {
             )}
 
             {leftPanelTab === 'chords' && (
-              <section className="coming-soon-panel">
-                <div className="coming-soon-graphic chord-graphic" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                  <strong>Cmaj7</strong>
-                </div>
-                <h2>Chords coming soon</h2>
-                <p>Chord diagrams and progression tools will live here.</p>
+              <section className="chords-panel">
+                <h2>Chords</h2>
+                {songChords.length > 0 ? (
+                  <>
+                    <div className="chord-summary-grid">
+                      {chordCounts.map(chord => (
+                        <button
+                          className="chord-chip"
+                          type="button"
+                          key={chord.name}
+                          onClick={() => {
+                            const firstOccurrence = songChords.find(item => item.name === chord.name);
+                            if (firstOccurrence) onSeek(firstOccurrence.tick);
+                          }}
+                        >
+                          <strong>{chord.name}</strong>
+                          <span>{chord.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="chord-progression-list">
+                      {songChords.map(chord => (
+                        <button
+                          className="chord-progression-item"
+                          type="button"
+                          key={chord.id}
+                          onClick={() => onSeek(chord.tick)}
+                        >
+                          <span>Bar {chord.barNumber}</span>
+                          <strong>{chord.name}</strong>
+                          <small>{chord.trackName}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="chords-empty-state">
+                    <div className="coming-soon-graphic chord-graphic" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                      <strong>Cmaj7</strong>
+                    </div>
+                    <h3>No embedded chords</h3>
+                    <p>This file does not include chord annotations.</p>
+                  </div>
+                )}
               </section>
             )}
 
@@ -1235,8 +1640,14 @@ function App() {
 
           <aside className="right-panel">
             <div className="inspector-tabs">
-              <button className={rightPanelTab === 'song' ? 'active' : ''} type="button" onClick={() => setRightPanelTab('song')}>Song</button>
-              <button className={rightPanelTab === 'playlist' ? 'active' : ''} type="button" onClick={() => setRightPanelTab('playlist')}>Playlist</button>
+              <button className={rightPanelTab === 'song' ? 'active' : ''} type="button" onClick={() => setRightPanelTab('song')}>
+                <img src="/music-icons/icons8-music-heart-100.png" alt="" />
+                Song
+              </button>
+              <button className={rightPanelTab === 'playlist' ? 'active' : ''} type="button" onClick={() => setRightPanelTab('playlist')}>
+                <img src="/music-icons/icons8-albums-100.png" alt="" />
+                Playlist
+              </button>
             </div>
 
             {rightPanelTab === 'song' && (
@@ -1255,8 +1666,11 @@ function App() {
                 <section className="panel-section compact-section">
                   <h2>Tuning</h2>
                   <div className="tuning-card">
-                    <strong>{tuningName}</strong>
-                    <span>{tuningNotes}</span>
+                    <img src="/music-icons/icons8-tuning-fork-100.png" alt="" />
+                    <div>
+                      <strong>{tuningName}</strong>
+                      <span>{tuningNotes}</span>
+                    </div>
                   </div>
                 </section>
 
@@ -1267,15 +1681,73 @@ function App() {
                     </div>
                     <label className="field-row">
                       <span>Fret</span>
-                      <input
-                        type="number"
-                        value={selectedNote.fret}
-                        onChange={(e) => updateFret(parseInt(e.target.value) || 0)}
-                      />
+                      <div className="fret-number-control">
+                        <input
+                          className="tempo-number fret-number"
+                          type="number"
+                          min="0"
+                          max="24"
+                          value={selectedNote.fret}
+                          onChange={(e) => updateFret(parseInt(e.target.value) || 0)}
+                          aria-label="Fret number"
+                        />
+                        <div className="tempo-stepper">
+                          <button
+                            className="tempo-step-button tempo-step-up"
+                            type="button"
+                            disabled={selectedNote.fret >= MAX_FRET}
+                            onClick={() => updateFret(selectedNote.fret + 1)}
+                            tabIndex={-1}
+                            aria-label="Increase fret"
+                          />
+                          <button
+                            className="tempo-step-button tempo-step-down"
+                            type="button"
+                            disabled={selectedNote.fret <= MIN_FRET}
+                            onClick={() => updateFret(Math.max(0, selectedNote.fret - 1))}
+                            tabIndex={-1}
+                            aria-label="Decrease fret"
+                          />
+                        </div>
+                      </div>
                     </label>
-                    <div className="button-row">
-                      <button type="button" onClick={() => updateFret(Math.max(0, selectedNote.fret - 1))}>- Fret</button>
-                      <button type="button" onClick={() => updateFret(selectedNote.fret + 1)}>+ Fret</button>
+                    <div className="note-edit-button-row">
+                      <button
+                        type="button"
+                        disabled={selectedNote.string >= selectedNote.stringCount}
+                        onClick={() => moveSelectedNoteToString(1)}
+                        aria-label="Move note to next string"
+                        title="Move note to next string"
+                      >
+                        <Icon name="arrow-up" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={selectedNote.string <= 1}
+                        onClick={() => moveSelectedNoteToString(-1)}
+                        aria-label="Move note to previous string"
+                        title="Move note to previous string"
+                      >
+                        <Icon name="arrow-down" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={selectedNote.fret >= MAX_FRET}
+                        onClick={() => updateFret(selectedNote.fret + 1)}
+                        aria-label="Increase fret"
+                        title="Increase fret"
+                      >
+                        <Icon name="plus" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={selectedNote.fret <= MIN_FRET}
+                        onClick={() => updateFret(selectedNote.fret - 1)}
+                        aria-label="Decrease fret"
+                        title="Decrease fret"
+                      >
+                        <Icon name="minus" />
+                      </button>
                     </div>
                   </section>
                 )}
@@ -1306,8 +1778,18 @@ function App() {
                   <div className="playlist-list">
                     {playlist.map((song, index) => (
                       <div
-                        className={`playlist-item ${song.id === activePlaylistId ? 'active' : ''}`}
+                        className={[
+                          'playlist-item',
+                          song.id === activePlaylistId ? 'active' : '',
+                          song.id === draggedPlaylistId ? 'dragging' : '',
+                          song.id === playlistDropId && song.id !== draggedPlaylistId ? 'drop-target' : ''
+                        ].filter(Boolean).join(' ')}
                         key={song.id}
+                        draggable
+                        onDragStart={(event) => handlePlaylistDragStart(event, song)}
+                        onDragOver={(event) => handlePlaylistDragOver(event, song)}
+                        onDrop={(event) => handlePlaylistDrop(event, song)}
+                        onDragEnd={clearPlaylistDragState}
                       >
                         <button className="playlist-select" type="button" onClick={() => switchPlaylistSong(song)}>
                           <span className="playlist-index">{index + 1}</span>
@@ -1349,9 +1831,17 @@ function App() {
         </div>
 
         <TimelineView
+            key={activePlaylistId || 'timeline-empty'}
             score={score}
+            orderedTrackIndices={trackOrder}
             activeTracks={activeTracks}
             onToggleTrack={toggleTrack}
+            draggedTrackIndex={draggedTrackIndex}
+            trackDropIndex={trackDropIndex}
+            onTrackDragStart={handleTrackDragStart}
+            onTrackDragOver={handleTrackDragOver}
+            onTrackDrop={handleTrackDrop}
+            onTrackDragEnd={clearTrackDragState}
             currentTick={currentTick}
             onSeek={onSeek}
             timelineMode={timelineMode}
@@ -1362,6 +1852,7 @@ function App() {
             onSelectionModeChange={setSelectionMode}
             trackSettings={trackSettings}
             onTrackSettingsChange={handleTrackSettingsChange}
+            onRenameTrack={renameTrack}
         />
         </div>
 
@@ -1480,6 +1971,30 @@ function App() {
             </div>
           </section>
         )}
+
+        <footer className="app-footer">
+          <span className="footer-credit">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+            </svg>
+            <span>
+              Made with love of music by{' '}
+              <a href="http://sebastianungureanu.com/" target="_blank" rel="noreferrer">
+                Sebastian Ungureanu
+              </a>
+              .
+            </span>
+          </span>
+          <a
+            className="footer-repo-link"
+            href="https://github.com/sebastian-ungureanu/tabengine"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img src="/GitHub_Invertocat_White.svg" alt="" />
+            sebastian-ungureanu/tabengine
+          </a>
+        </footer>
       </main>
     </div>
   );

@@ -3,7 +3,10 @@
   --sidebar-bg: #252526;
   --toolbar-bg: #333333;
   --text-color: #cccccc;
-  --accent-color: #007acc;
+  --accent-color: #7c3aed;
+  --accent-color-strong: #8b5cf6;
+  --accent-color-soft: rgba(124, 58, 237, 0.18);
+  --accent-color-border: rgba(139, 92, 246, 0.52);
   --playhead-color: #ff0000;
   --playhead-glow: rgba(255, 0, 0, 0.45);
   --playhead-bar-bg: rgba(255, 0, 0, 0.14);
