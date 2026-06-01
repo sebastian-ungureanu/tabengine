@@ -54,6 +54,7 @@ type TechniqueId = 'vibrato' | 'bend' | 'slide' | 'harmonic' | 'tap' | 'grace' |
 type DefaultTrackType = 'guitar' | 'bass' | 'drums';
 type TimelineMode = 'bars' | 'timeline';
 type SelectionMode = 'single' | 'multi';
+type SidebarSectionId = 'display' | 'instrument' | 'tuning' | 'edit-note' | 'technique';
 
 const TECHNIQUES: Array<{ id: TechniqueId; label: string }> = [
   { id: 'vibrato', label: 'Vib' },
@@ -458,6 +459,7 @@ function App() {
   const [draggedTrackIndex, setDraggedTrackIndex] = useState<number | null>(null);
   const [trackDropIndex, setTrackDropIndex] = useState<number | null>(null);
   const [trackNameRevision, setTrackNameRevision] = useState(0);
+  const [collapsedSidebarSections, setCollapsedSidebarSections] = useState<Partial<Record<SidebarSectionId, boolean>>>({});
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -517,6 +519,29 @@ function App() {
   const nextPlaylistSong = activePlaylistIndex >= 0 && activePlaylistIndex < playlist.length - 1
     ? playlist[activePlaylistIndex + 1]
     : null;
+  const isSidebarSectionCollapsed = (sectionId: SidebarSectionId) => Boolean(collapsedSidebarSections[sectionId]);
+  const getSidebarSectionContentId = (sectionId: SidebarSectionId) => `${sectionId}-section-content`;
+  const toggleSidebarSection = (sectionId: SidebarSectionId) => {
+    setCollapsedSidebarSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+  const renderSidebarSectionHeader = (sectionId: SidebarSectionId, title: string) => {
+    const isCollapsed = isSidebarSectionCollapsed(sectionId);
+
+    return (
+      <button
+        className="section-collapse-button"
+        type="button"
+        aria-expanded={!isCollapsed}
+        aria-controls={getSidebarSectionContentId(sectionId)}
+        onClick={() => toggleSidebarSection(sectionId)}
+      >
+        <h2>{title}</h2>
+      </button>
+    );
+  };
 
   useEffect(() => {
     if (!score || !editorRef.current || activeTracks.length === 0) return;
@@ -1449,9 +1474,13 @@ function App() {
 
             {leftPanelTab === 'tabs' && (
               <>
-                <section className="panel-section compact-section display-section">
-                  <h2>Display</h2>
-                  <div className="notation-toggle-list">
+                <section className="panel-section collapsible-panel-section display-section">
+                  {renderSidebarSectionHeader('display', 'Display')}
+                  <div
+                    className="collapsible-section-content notation-toggle-list"
+                    id={getSidebarSectionContentId('display')}
+                    hidden={isSidebarSectionCollapsed('display')}
+                  >
                     <label className="notation-toggle">
                       <span>Musical notation</span>
                       <input
@@ -1740,9 +1769,13 @@ function App() {
 
             {rightPanelTab === 'song' && (
               <>
-                <section className="panel-section">
-                  <h2>Instrument</h2>
-                  <div className="instrument-card">
+                <section className="panel-section collapsible-panel-section">
+                  {renderSidebarSectionHeader('instrument', 'Instrument')}
+                  <div
+                    className="collapsible-section-content instrument-card"
+                    id={getSidebarSectionContentId('instrument')}
+                    hidden={isSidebarSectionCollapsed('instrument')}
+                  >
                     <InstrumentIcon track={selectedTrack} className="instrument-icon" />
                     <div>
                       <strong>{selectedTrack?.name || 'No track selected'}</strong>
@@ -1751,9 +1784,13 @@ function App() {
                   </div>
                 </section>
 
-                <section className="panel-section compact-section">
-                  <h2>Tuning</h2>
-                  <div className="tuning-card">
+                <section className="panel-section collapsible-panel-section">
+                  {renderSidebarSectionHeader('tuning', 'Tuning')}
+                  <div
+                    className="collapsible-section-content tuning-card"
+                    id={getSidebarSectionContentId('tuning')}
+                    hidden={isSidebarSectionCollapsed('tuning')}
+                  >
                     <img src={assetPath('music-icons/icons8-tuning-fork-100.png')} alt="" />
                     <div>
                       <strong>{tuningName}</strong>
@@ -1763,86 +1800,94 @@ function App() {
                 </section>
 
                 {selectedNote && (
-                  <section className="panel-section compact-section">
-                    <div className="section-title-row">
-                      <h2>Edit Note</h2>
-                    </div>
-                    <label className="field-row">
-                      <span>Fret</span>
-                      <div className="fret-number-control">
-                        <input
-                          className="tempo-number fret-number"
-                          type="number"
-                          min="0"
-                          max="24"
-                          value={selectedNote.fret}
-                          onChange={(e) => updateFret(parseInt(e.target.value) || 0)}
-                          aria-label="Fret number"
-                        />
-                        <div className="tempo-stepper">
-                          <button
-                            className="tempo-step-button tempo-step-up"
-                            type="button"
-                            disabled={selectedNote.fret >= MAX_FRET}
-                            onClick={() => updateFret(selectedNote.fret + 1)}
-                            tabIndex={-1}
-                            aria-label="Increase fret"
+                  <section className="panel-section collapsible-panel-section">
+                    {renderSidebarSectionHeader('edit-note', 'Edit Note')}
+                    <div
+                      className="collapsible-section-content compact-section"
+                      id={getSidebarSectionContentId('edit-note')}
+                      hidden={isSidebarSectionCollapsed('edit-note')}
+                    >
+                      <label className="field-row">
+                        <span>Fret</span>
+                        <div className="fret-number-control">
+                          <input
+                            className="tempo-number fret-number"
+                            type="number"
+                            min="0"
+                            max="24"
+                            value={selectedNote.fret}
+                            onChange={(e) => updateFret(parseInt(e.target.value) || 0)}
+                            aria-label="Fret number"
                           />
-                          <button
-                            className="tempo-step-button tempo-step-down"
-                            type="button"
-                            disabled={selectedNote.fret <= MIN_FRET}
-                            onClick={() => updateFret(Math.max(0, selectedNote.fret - 1))}
-                            tabIndex={-1}
-                            aria-label="Decrease fret"
-                          />
+                          <div className="tempo-stepper">
+                            <button
+                              className="tempo-step-button tempo-step-up"
+                              type="button"
+                              disabled={selectedNote.fret >= MAX_FRET}
+                              onClick={() => updateFret(selectedNote.fret + 1)}
+                              tabIndex={-1}
+                              aria-label="Increase fret"
+                            />
+                            <button
+                              className="tempo-step-button tempo-step-down"
+                              type="button"
+                              disabled={selectedNote.fret <= MIN_FRET}
+                              onClick={() => updateFret(Math.max(0, selectedNote.fret - 1))}
+                              tabIndex={-1}
+                              aria-label="Decrease fret"
+                            />
+                          </div>
                         </div>
+                      </label>
+                      <div className="note-edit-button-row">
+                        <button
+                          type="button"
+                          disabled={selectedNote.string >= selectedNote.stringCount}
+                          onClick={() => moveSelectedNoteToString(1)}
+                          aria-label="Move note to next string"
+                          title="Move note to next string"
+                        >
+                          <Icon name="arrow-up" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={selectedNote.string <= 1}
+                          onClick={() => moveSelectedNoteToString(-1)}
+                          aria-label="Move note to previous string"
+                          title="Move note to previous string"
+                        >
+                          <Icon name="arrow-down" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={selectedNote.fret >= MAX_FRET}
+                          onClick={() => updateFret(selectedNote.fret + 1)}
+                          aria-label="Increase fret"
+                          title="Increase fret"
+                        >
+                          <Icon name="plus" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={selectedNote.fret <= MIN_FRET}
+                          onClick={() => updateFret(selectedNote.fret - 1)}
+                          aria-label="Decrease fret"
+                          title="Decrease fret"
+                        >
+                          <Icon name="minus" />
+                        </button>
                       </div>
-                    </label>
-                    <div className="note-edit-button-row">
-                      <button
-                        type="button"
-                        disabled={selectedNote.string >= selectedNote.stringCount}
-                        onClick={() => moveSelectedNoteToString(1)}
-                        aria-label="Move note to next string"
-                        title="Move note to next string"
-                      >
-                        <Icon name="arrow-up" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={selectedNote.string <= 1}
-                        onClick={() => moveSelectedNoteToString(-1)}
-                        aria-label="Move note to previous string"
-                        title="Move note to previous string"
-                      >
-                        <Icon name="arrow-down" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={selectedNote.fret >= MAX_FRET}
-                        onClick={() => updateFret(selectedNote.fret + 1)}
-                        aria-label="Increase fret"
-                        title="Increase fret"
-                      >
-                        <Icon name="plus" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={selectedNote.fret <= MIN_FRET}
-                        onClick={() => updateFret(selectedNote.fret - 1)}
-                        aria-label="Decrease fret"
-                        title="Decrease fret"
-                      >
-                        <Icon name="minus" />
-                      </button>
                     </div>
                   </section>
                 )}
 
-                <section className="panel-section compact-section">
-                  <h2>Technique</h2>
-                  <div className="technique-grid">
+                <section className="panel-section collapsible-panel-section">
+                  {renderSidebarSectionHeader('technique', 'Technique')}
+                  <div
+                    className="collapsible-section-content technique-grid"
+                    id={getSidebarSectionContentId('technique')}
+                    hidden={isSidebarSectionCollapsed('technique')}
+                  >
                     {TECHNIQUES.map(technique => (
                       <button
                         className={isTechniqueActive(technique.id) ? 'active' : ''}

@@ -995,6 +995,63 @@ input[type="file"] {
   text-transform: uppercase;
 }
 
+.section-collapse-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  color: #f0f4fb;
+  text-align: left;
+}
+
+.section-collapse-button:hover {
+  background: transparent;
+  color: #fff;
+}
+
+.section-collapse-button h2 {
+  margin: 0;
+}
+
+.section-collapse-button::after {
+  content: "";
+  justify-self: end;
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-left: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.78;
+  transform: rotate(0deg);
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.section-collapse-button[aria-expanded="false"]::after {
+  transform: rotate(-90deg);
+}
+
+.section-collapse-button:hover::after {
+  opacity: 1;
+}
+
+.collapsible-panel-section {
+  display: grid;
+  gap: 10px;
+}
+
+.collapsible-section-content {
+  min-width: 0;
+}
+
+.collapsible-section-content[hidden] {
+  display: none !important;
+}
+
 .section-title-row {
   display: flex;
   align-items: center;
@@ -2721,6 +2778,7 @@ select,
 
 .app-container.light-theme .menu-button,
 .app-container.light-theme .transport-button,
+.app-container.light-theme .section-collapse-button,
 .app-container.light-theme .playlist-select,
 .app-container.light-theme .track-main,
 .app-container.light-theme .timeline-rename-button,
@@ -2730,6 +2788,7 @@ select,
 
 .app-container.light-theme .menu-button.active,
 .app-container.light-theme .menu-button:hover,
+.app-container.light-theme .section-collapse-button:hover,
 .app-container.light-theme .play-button:hover {
   background: rgba(79, 99, 215, 0.1);
 }
