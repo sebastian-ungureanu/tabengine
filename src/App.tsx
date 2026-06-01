@@ -1241,7 +1241,7 @@ function App() {
               aria-expanded={isAppMenuOpen}
               onClick={() => setIsAppMenuOpen(open => !open)}
             >
-              <img src={assetPath('tab-engine-icon.svg')} alt="" />
+              <img src={assetPath('tabengine_logo.png')} alt="" />
             </button>
             {isAppMenuOpen && (
               <div className="app-menu-popover" role="menu">
