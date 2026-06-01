@@ -1,12 +1,13 @@
 import * as alphaTab from '@coderline/alphatab';
 import { getInstrumentCategory, type InstrumentCategory } from '../utils/instruments';
+import { assetPath } from '../utils/assetPaths';
 
 interface InstrumentIconProps {
   track?: alphaTab.model.Track | null;
   className?: string;
 }
 
-const MUSIC_ICON_BASE = '/music-icons/';
+const MUSIC_ICON_BASE = assetPath('music-icons/');
 
 const CATEGORY_ICONS: Record<InstrumentCategory, string> = {
   'Acoustic guitar': 'icons8-folk-100.png',

@@ -646,6 +646,16 @@ button:disabled {
   color: #fff;
 }
 
+.theme-toggle-button {
+  color: #dce4f1;
+  background: #252d3b;
+}
+
+.theme-toggle-button:hover {
+  background: rgba(252, 211, 77, 0.18);
+  color: #fde68a;
+}
+
 input[type="file"] {
   display: none;
 }
@@ -2468,4 +2478,306 @@ select,
   .left-panel {
     display: none;
   }
+}
+
+.app-container.light-theme {
+  --bg-color: #f4f7fb;
+  --text-color: #263244;
+  --accent-color: #5b6ee1;
+  --accent-color-strong: #4f63d7;
+  --accent-color-soft: rgba(91, 110, 225, 0.14);
+  --accent-color-border: rgba(79, 99, 215, 0.36);
+  --playhead-glow: rgba(255, 0, 0, 0.26);
+  background: #f4f7fb;
+  color: #263244;
+}
+
+.app-container.light-theme * {
+  scrollbar-color: #b6c1d4 #edf1f7;
+}
+
+.app-container.light-theme *::-webkit-scrollbar-track,
+.app-container.light-theme *::-webkit-scrollbar-corner {
+  background: #edf1f7;
+}
+
+.app-container.light-theme *::-webkit-scrollbar-thumb {
+  border-color: #edf1f7;
+  background: #b6c1d4;
+}
+
+.app-container.light-theme *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.app-container.light-theme .toolbar,
+.app-container.light-theme .panel-tabs,
+.app-container.light-theme .inspector-tabs,
+.app-container.light-theme .timeline-tabs,
+.app-container.light-theme .preferences-view {
+  background: #f7f9fc;
+  border-color: #dbe3ef;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
+
+.app-container.light-theme button,
+.app-container.light-theme .file-input-label {
+  color: #263244;
+  background: #e7ecf4;
+}
+
+.app-container.light-theme button:hover,
+.app-container.light-theme .file-input-label:hover {
+  background: #dce4ef;
+}
+
+.app-container.light-theme button:disabled {
+  color: #98a2b3;
+  background: transparent;
+}
+
+.app-container.light-theme .menu-button,
+.app-container.light-theme .transport-button,
+.app-container.light-theme .playlist-select,
+.app-container.light-theme .track-main,
+.app-container.light-theme .timeline-rename-button,
+.app-container.light-theme .playlist-delete-button {
+  background: transparent;
+}
+
+.app-container.light-theme .menu-button.active,
+.app-container.light-theme .menu-button:hover,
+.app-container.light-theme .play-button:hover {
+  background: rgba(79, 99, 215, 0.1);
+}
+
+.app-container.light-theme .app-menu-popover,
+.app-container.light-theme .app-menu-popover::before,
+.app-container.light-theme .left-panel,
+.app-container.light-theme .right-panel,
+.app-container.light-theme .preferences-panel,
+.app-container.light-theme .center-stage,
+.app-container.light-theme .editor-container,
+.app-container.light-theme .timeline-container,
+.app-container.light-theme .timeline-header {
+  background: #eef3f9;
+  border-color: #d4deeb;
+}
+
+.app-container.light-theme .app-menu-popover {
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
+}
+
+.app-container.light-theme .app-menu-popover button:hover,
+.app-container.light-theme .app-menu-popover button.active,
+.app-container.light-theme .panel-tabs button,
+.app-container.light-theme .inspector-tabs button,
+.app-container.light-theme .timeline-tabs button,
+.app-container.light-theme .song-nav-button,
+.app-container.light-theme .tempo-number-control,
+.app-container.light-theme .fret-number-control,
+.app-container.light-theme .zoom-percent-control,
+.app-container.light-theme .zoom-controls .icon-button,
+.app-container.light-theme .instrument-card,
+.app-container.light-theme .tuning-card,
+.app-container.light-theme .technique-grid,
+.app-container.light-theme .notation-grid,
+.app-container.light-theme .notation-toggle,
+.app-container.light-theme .playlist-item,
+.app-container.light-theme .playlist-empty,
+.app-container.light-theme .lyrics-track-card,
+.app-container.light-theme .chord-progression-item,
+.app-container.light-theme .preference-choice,
+.app-container.light-theme .timeline-track-info,
+.app-container.light-theme .timeline-ruler-spacer {
+  border-color: #d2dbea;
+  background: #ffffff;
+}
+
+.app-container.light-theme .song-nav-button:hover,
+.app-container.light-theme .zoom-controls .icon-button:hover,
+.app-container.light-theme .tempo-step-button:hover,
+.app-container.light-theme .playlist-item:hover,
+.app-container.light-theme .chord-progression-item:hover,
+.app-container.light-theme .timeline-toolstrip button:hover {
+  background: #edf2fb;
+}
+
+.app-container.light-theme .play-button {
+  border-color: #6b7de4;
+  color: #344260;
+  background: #ffffff;
+}
+
+.app-container.light-theme .app-brand,
+.app-container.light-theme .app-menu-popover strong,
+.app-container.light-theme .song-title-block strong,
+.app-container.light-theme .song-nav-button strong,
+.app-container.light-theme .timeline-meta span:first-child,
+.app-container.light-theme .track-main strong,
+.app-container.light-theme .panel-section h2,
+.app-container.light-theme .preferences-panel h2,
+.app-container.light-theme .preferences-header h1,
+.app-container.light-theme .instrument-card strong,
+.app-container.light-theme .tuning-card strong,
+.app-container.light-theme .playlist-meta strong,
+.app-container.light-theme .playlist-empty strong,
+.app-container.light-theme .lyrics-track-card h3,
+.app-container.light-theme .chord-progression-item strong,
+.app-container.light-theme .track-name strong,
+.app-container.light-theme .chords-empty-state h3,
+.app-container.light-theme .lyrics-empty-state h3,
+.app-container.light-theme .coming-soon-panel h2 {
+  color: #1f2937;
+}
+
+.app-container.light-theme .app-menu-popover span,
+.app-container.light-theme .time-readout,
+.app-container.light-theme .song-stats,
+.app-container.light-theme .tempo-label,
+.app-container.light-theme .song-title-block span,
+.app-container.light-theme .song-nav-button small,
+.app-container.light-theme .tempo-unit,
+.app-container.light-theme .track-main small,
+.app-container.light-theme .control-label,
+.app-container.light-theme .field-row span,
+.app-container.light-theme .tuning-card span,
+.app-container.light-theme .instrument-card small,
+.app-container.light-theme .playlist-meta small,
+.app-container.light-theme .playlist-meta em,
+.app-container.light-theme .empty-panel-state,
+.app-container.light-theme .timeline-meta,
+.app-container.light-theme .timeline-tool-label,
+.app-container.light-theme .timeline-ruler-grid span,
+.app-container.light-theme .chord-progression-item span,
+.app-container.light-theme .chord-progression-item small,
+.app-container.light-theme .lyrics-track-card p,
+.app-container.light-theme .chords-empty-state p,
+.app-container.light-theme .lyrics-empty-state p,
+.app-container.light-theme .coming-soon-panel p,
+.app-container.light-theme .info-section dt,
+.app-container.light-theme .info-section dd {
+  color: #596579;
+}
+
+.app-container.light-theme .tempo-number,
+.app-container.light-theme .zoom-percent-input,
+.app-container.light-theme .field-row .fret-number,
+.app-container.light-theme select,
+.app-container.light-theme .field-row input[type="number"],
+.app-container.light-theme .preference-row input[type="number"],
+.app-container.light-theme .timeline-track-name-input {
+  color: #253247;
+  background: transparent;
+}
+
+.app-container.light-theme select,
+.app-container.light-theme .field-row input[type="number"],
+.app-container.light-theme .preference-row input[type="number"],
+.app-container.light-theme .timeline-track-name-input {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+.app-container.light-theme .tempo-stepper {
+  border-color: #d2dbea;
+  background: #edf2f8;
+}
+
+.app-container.light-theme .tempo-slider,
+.app-container.light-theme .track-slider,
+.app-container.light-theme .field-row input[type="range"],
+.app-container.light-theme .track-mix-control input[type="range"] {
+  background: #d3dbe8;
+}
+
+.app-container.light-theme .file-input-label,
+.app-container.light-theme .panel-tabs button.active,
+.app-container.light-theme .inspector-tabs button.active,
+.app-container.light-theme .timeline-tabs button.active,
+.app-container.light-theme .mini-toggle.active,
+.app-container.light-theme .control-btn.active,
+.app-container.light-theme .timeline-toolstrip button.active {
+  color: #ffffff;
+  background: var(--accent-color);
+}
+
+.app-container.light-theme .theme-toggle-button,
+.app-container.light-theme .fullscreen-button,
+.app-container.light-theme .tempo-reset-button,
+.app-container.light-theme .timeline-toolstrip button {
+  color: #334155;
+  background: #ffffff;
+}
+
+.app-container.light-theme .theme-toggle-button:hover {
+  color: #b45309;
+  background: #fff7dd;
+}
+
+.app-container.light-theme .fullscreen-button:hover {
+  color: #4f63d7;
+  background: rgba(79, 99, 215, 0.12);
+}
+
+.app-container.light-theme .workspace-layout,
+.app-container.light-theme .left-panel,
+.app-container.light-theme .right-panel,
+.app-container.light-theme .panel-section,
+.app-container.light-theme .preference-row,
+.app-container.light-theme .timeline-container,
+.app-container.light-theme .timeline-header,
+.app-container.light-theme .timeline-ruler,
+.app-container.light-theme .timeline-track-info,
+.app-container.light-theme .timeline-track-row {
+  border-color: #d7e0ec;
+}
+
+.app-container.light-theme .side-track.active,
+.app-container.light-theme .timeline-track-info.active {
+  background: rgba(79, 99, 215, 0.16);
+}
+
+.app-container.light-theme .playlist-item.active {
+  border-color: rgba(79, 99, 215, 0.56);
+  background: linear-gradient(90deg, rgba(79, 99, 215, 0.18), #ffffff);
+}
+
+.app-container.light-theme .timeline-ruler-grid,
+.app-container.light-theme .timeline-visual,
+.app-container.light-theme .timeline-visual-notes {
+  background-color: #f7f9fc;
+  background-image:
+    linear-gradient(90deg, rgba(71, 85, 105, 0.11) 1px, transparent 1px);
+}
+
+.app-container.light-theme .timeline-visual-notes {
+  background-image:
+    linear-gradient(90deg, rgba(71, 85, 105, 0.11) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(71, 85, 105, 0.06) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(71, 85, 105, 0.07) 1px, transparent 1px);
+}
+
+.app-container.light-theme .app-footer {
+  border-color: #d7e0ec;
+  background: #e8eef6;
+  color: #596579;
+}
+
+.app-container.light-theme .app-footer a,
+.app-container.light-theme .lyrics-empty-state a,
+.app-container.light-theme .text-link {
+  color: #4f63d7;
+}
+
+.app-container.light-theme .app-footer a:hover,
+.app-container.light-theme .lyrics-empty-state a:hover,
+.app-container.light-theme .text-link:hover {
+  color: #334ac5;
+}
+
+.app-container.light-theme .coming-soon-graphic {
+  border-color: #d2dbea;
+  background: linear-gradient(180deg, #ffffff, #eef3f9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 16px 28px rgba(15, 23, 42, 0.08);
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import * as alphaTab from '@coderline/alphatab';
+import { assetPath } from '../utils/assetPaths';
 
 export interface AlphaTabEditorProps {
   onScoreLoaded?: (score: alphaTab.model.Score) => void;
@@ -48,7 +49,7 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
 
     const api = new alphaTab.AlphaTabApi(containerRef.current, {
       core: {
-        fontDirectory: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/font/',
+        fontDirectory: assetPath('alphatab/font/'),
       },
       player: {
         playerMode: alphaTab.PlayerMode.EnabledAutomatic,
@@ -60,7 +61,7 @@ const AlphaTabEditor = forwardRef<AlphaTabEditorRef, AlphaTabEditorProps>((props
         scrollOffsetY: -56,
         scrollSpeed: 180,
         nativeBrowserSmoothScroll: true,
-        soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2',
+        soundFont: assetPath('alphatab/soundfont/sonivox.sf2'),
       },
       display: {
         layoutMode: alphaTab.LayoutMode.Page,

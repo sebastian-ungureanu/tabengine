@@ -3,10 +3,12 @@ import * as alphaTab from '@coderline/alphatab';
 import AlphaTabEditor, { type AlphaTabEditorRef } from './components/AlphaTabEditor';
 import InstrumentIcon from './components/InstrumentIcon';
 import TimelineView, { type TrackSettings } from './components/TimelineView';
+import { assetPath } from './utils/assetPaths';
 import { getInstrumentCategory } from './utils/instruments';
 import './App.css';
 
-type IconName = 'skip-back' | 'rewind' | 'play' | 'pause' | 'fast-forward' | 'stop' | 'minus' | 'plus' | 'arrow-up' | 'arrow-down' | 'metronome' | 'reset' | 'song-prev' | 'song-next' | 'trash' | 'fullscreen' | 'fullscreen-exit';
+type IconName = 'skip-back' | 'rewind' | 'play' | 'pause' | 'fast-forward' | 'stop' | 'minus' | 'plus' | 'arrow-up' | 'arrow-down' | 'metronome' | 'reset' | 'song-prev' | 'song-next' | 'trash' | 'moon' | 'sun' | 'fullscreen' | 'fullscreen-exit';
+type ThemeMode = 'dark' | 'light';
 
 interface TrackLyrics {
   trackIndex: number;
@@ -208,6 +210,26 @@ const Icon = ({ name }: { name: IconName }) => {
           <path d="M14 11v6" />
         </svg>
       );
+    case 'moon':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20.4 14.6A8 8 0 0 1 9.4 3.6 8.5 8.5 0 1 0 20.4 14.6Z" />
+        </svg>
+      );
+    case 'sun':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.93 4.93 1.41 1.41" />
+          <path d="m17.66 17.66 1.41 1.41" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.34 17.66-1.41 1.41" />
+          <path d="m19.07 4.93-1.41 1.41" />
+        </svg>
+      );
     case 'fullscreen':
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -386,6 +408,7 @@ function App() {
   const [appView, setAppView] = useState<'main' | 'preferences'>('main');
   const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [leftPanelTab, setLeftPanelTab] = useState<'tabs' | 'chords' | 'lyrics'>('tabs');
   const [rightPanelTab, setRightPanelTab] = useState<'song' | 'playlist'>('song');
   const [trackLyrics, setTrackLyrics] = useState<TrackLyrics[]>([]);
@@ -1184,8 +1207,12 @@ function App() {
     appContainerRef.current?.requestFullscreen();
   };
 
+  const toggleThemeMode = () => {
+    setThemeMode(current => current === 'dark' ? 'light' : 'dark');
+  };
+
   return (
-    <div className="app-container" ref={appContainerRef}>
+    <div className={`app-container ${themeMode}-theme`} ref={appContainerRef}>
       <main className="main-content">
         <header className="toolbar">
           <div className="app-menu">
@@ -1196,7 +1223,7 @@ function App() {
               aria-expanded={isAppMenuOpen}
               onClick={() => setIsAppMenuOpen(open => !open)}
             >
-              <img src="/tab-engine-icon.svg" alt="" />
+              <img src={assetPath('tab-engine-icon.svg')} alt="" />
             </button>
             {isAppMenuOpen && (
               <div className="app-menu-popover" role="menu">
@@ -1289,7 +1316,7 @@ function App() {
           <div className="song-stats">
             <div className="tempo-control" aria-label="Tempo control">
               <span className="tempo-label">
-                <img src="/music-icons/icons8-metronome-100.png" alt="" />
+                <img src={assetPath('music-icons/icons8-metronome-100.png')} alt="" />
                 Tempo
               </span>
               <input
@@ -1368,10 +1395,19 @@ function App() {
           <div className="file-actions">
             <button className="ghost-button" type="button" onClick={loadDemo}>Demo</button>
             <label className="file-input-label">
-              <img src="/music-icons/icons8-rhythm-100.png" alt="" />
+              <img src={assetPath('music-icons/icons8-rhythm-100.png')} alt="" />
               Load song
               <input type="file" accept=".gp,.gp3,.gp4,.gp5,.gpx" onChange={handleFileChange} />
             </label>
+            <button
+              className="icon-button theme-toggle-button"
+              type="button"
+              onClick={toggleThemeMode}
+              aria-label={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              <Icon name={themeMode === 'dark' ? 'moon' : 'sun'} />
+            </button>
             <button
               className="icon-button fullscreen-button"
               type="button"
@@ -1643,11 +1679,11 @@ function App() {
           <aside className="right-panel">
             <div className="inspector-tabs">
               <button className={rightPanelTab === 'song' ? 'active' : ''} type="button" onClick={() => setRightPanelTab('song')}>
-                <img src="/music-icons/icons8-music-heart-100.png" alt="" />
+                <img src={assetPath('music-icons/icons8-music-heart-100.png')} alt="" />
                 Song
               </button>
               <button className={rightPanelTab === 'playlist' ? 'active' : ''} type="button" onClick={() => setRightPanelTab('playlist')}>
-                <img src="/music-icons/icons8-albums-100.png" alt="" />
+                <img src={assetPath('music-icons/icons8-albums-100.png')} alt="" />
                 Playlist
               </button>
             </div>
@@ -1668,7 +1704,7 @@ function App() {
                 <section className="panel-section compact-section">
                   <h2>Tuning</h2>
                   <div className="tuning-card">
-                    <img src="/music-icons/icons8-tuning-fork-100.png" alt="" />
+                    <img src={assetPath('music-icons/icons8-tuning-fork-100.png')} alt="" />
                     <div>
                       <strong>{tuningName}</strong>
                       <span>{tuningNotes}</span>
@@ -1993,7 +2029,7 @@ function App() {
             target="_blank"
             rel="noreferrer"
           >
-            <img src="/GitHub_Invertocat_White.svg" alt="" />
+            <img src={assetPath('GitHub_Invertocat_White.svg')} alt="" />
             sebastian-ungureanu/tabengine
           </a>
         </footer>
