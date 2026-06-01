@@ -68,6 +68,27 @@ const TECHNIQUES: Array<{ id: TechniqueId; label: string }> = [
   { id: 'hammerPull', label: 'H/P' }
 ];
 
+const GETTING_STARTED_STEPS = [
+  {
+    title: 'Load a song',
+    description: 'Open a Guitar Pro file from your device, or start with the demo song to explore the workspace.',
+    imageSrc: assetPath('screenshots/step1.png'),
+    imageAlt: 'Playlist with loaded songs'
+  },
+  {
+    title: 'Configure your view',
+    description: 'Select your preferred view, instrument, and playback behavior. Reorder, mute, solo, or balance parts as needed.',
+    imageSrc: assetPath('screenshots/step2.png'),
+    imageAlt: 'Rendered sheet music and tablature'
+  },
+  {
+    title: 'Play and enjoy',
+    description: 'Use playback, tempo, zoom, timeline navigation, and note tools to practice or edit the arrangement.',
+    imageSrc: assetPath('screenshots/step3.png'),
+    imageAlt: 'Timeline view with arranged instrument tracks'
+  }
+];
+
 const HAMMER_PULL_LOOKUP_BAR_OFFSET = 3;
 const MIN_FRET = 0;
 const MAX_FRET = 24;
@@ -1665,7 +1686,39 @@ function App() {
           </aside>
 
           <section className="center-stage">
-            <div className="editor-container">
+            <div className={`editor-container ${!score ? 'has-getting-started' : ''}`}>
+              {!score && (
+                <section className="getting-started-screen" aria-labelledby="getting-started-title">
+                  <div className="getting-started-panel">
+                    <span className="getting-started-kicker">Getting started</span>
+                    <h1 id="getting-started-title">How to use Tab Engine</h1>
+                    <ol className="getting-started-steps">
+                      {GETTING_STARTED_STEPS.map((step, index) => (
+                        <li key={step.title}>
+                          <div className="getting-started-card-visual">
+                            <img src={step.imageSrc} alt={step.imageAlt} />
+                          </div>
+                          <div className="getting-started-card-copy">
+                            <span className="getting-started-step-number">{index + 1}</span>
+                            <div>
+                              <strong>{step.title}</strong>
+                              <p>{step.description}</p>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                    <div className="getting-started-actions">
+                      <button className="ghost-button" type="button" onClick={loadDemo}>Demo</button>
+                      <label className="file-input-label">
+                        <img src={assetPath('music-icons/icons8-rhythm-100.png')} alt="" />
+                        Load song
+                        <input type="file" accept=".gp,.gp3,.gp4,.gp5,.gpx" onChange={handleFileChange} />
+                      </label>
+                    </div>
+                  </div>
+                </section>
+              )}
               <AlphaTabEditor
                 ref={editorRef}
                 onScoreLoaded={onScoreLoaded}
