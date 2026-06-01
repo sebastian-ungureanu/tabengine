@@ -64,6 +64,7 @@ const MIN_TIMELINE_TRACK_HEIGHT = 34;
 const COMPACT_TRACK_COUNT_LIMIT = 6;
 const TIMELINE_HEADER_HEIGHT = 46;
 const TIMELINE_RULER_HEIGHT = 26;
+const EMPTY_TIMELINE_HEIGHT = 150;
 const DEFAULT_TIMELINE_HEIGHT = 300;
 const MIN_TIMELINE_LABEL_WIDTH = 258;
 
@@ -72,7 +73,7 @@ const getInitialTimelineHeight = (score: alphaTab.model.Score | null) => {
     if (trackCount > 0 && trackCount < COMPACT_TRACK_COUNT_LIMIT) {
         return TIMELINE_HEADER_HEIGHT + TIMELINE_RULER_HEIGHT + (trackCount * MIN_TIMELINE_TRACK_HEIGHT);
     }
-    return DEFAULT_TIMELINE_HEIGHT;
+    return score ? DEFAULT_TIMELINE_HEIGHT : EMPTY_TIMELINE_HEIGHT;
 };
 
 const getBeatPlaybackTick = (beat: alphaTab.model.Beat, barStartTicks: number[]) => {
