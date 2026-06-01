@@ -1,3 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
+
+:root {
+  --font-logo: 'Poppins', var(--font-ui);
+  --font-ui: 'Geist', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-info: 'Geist Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('/Geist/Geist-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('/Geist/Geist-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/Geist_Mono/GeistMono-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/Geist_Mono/GeistMono-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   --bg-color: #1e1e1e;
   --sidebar-bg: #252526;
@@ -22,7 +62,10 @@ html, body, #root {
   box-sizing: border-box;
   background-color: #1e1e1e;
   color: #cccccc;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-ui);
+  font-feature-settings: "kern", "liga", "calt";
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
 }
 

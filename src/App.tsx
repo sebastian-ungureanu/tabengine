@@ -502,9 +502,6 @@ function App() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [songChords]);
-  const selectedTrackSettings = selectedTrack
-    ? trackSettings[selectedTrack.index] || { volume: 8, pan: 0, mute: false, solo: false }
-    : { volume: 8, pan: 0, mute: false, solo: false };
   const selectedStaff = selectedTrack?.staves[0] ?? null;
   const tuningName = selectedStaff?.isStringed ? selectedStaff.tuningName : selectedTrack ? 'Not applicable' : '-';
   const tuningNotes = selectedStaff?.isStringed
@@ -1749,7 +1746,7 @@ function App() {
                     <InstrumentIcon track={selectedTrack} className="instrument-icon" />
                     <div>
                       <strong>{selectedTrack?.name || 'No track selected'}</strong>
-                      <small>{getInstrumentCategory(selectedTrack)} - Vol {selectedTrackSettings.volume}</small>
+                      <small>{getInstrumentCategory(selectedTrack)}</small>
                     </div>
                   </div>
                 </section>

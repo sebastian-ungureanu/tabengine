@@ -6,6 +6,56 @@
   color: var(--text-color);
 }
 
+h1,
+h2,
+h3,
+button,
+input,
+select,
+textarea,
+.file-input-label,
+.app-brand {
+  font-family: var(--font-ui);
+  letter-spacing: 0;
+}
+
+.time-readout,
+.song-stats,
+.tempo-label,
+.tempo-number,
+.tempo-unit,
+.zoom-percent-input,
+.zoom-percent-control span,
+.track-main strong,
+.track-main small,
+.control-label,
+.empty-panel-state,
+.chord-chip,
+.chord-progression-item span,
+.chord-progression-item strong,
+.chord-progression-item small,
+.lyrics-track-card p,
+.info-section dt,
+.info-section dd,
+.field-row span,
+.field-row input[type="number"],
+.playlist-index,
+.playlist-meta strong,
+.playlist-meta small,
+.playlist-meta em,
+.playlist-empty span,
+.app-footer,
+.timeline-tool-label,
+.timeline-meta,
+.timeline-ruler-grid span,
+.track-name strong,
+.timeline-track-name-input,
+.timeline-empty-state {
+  font-family: var(--font-info);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
 .main-content {
   height: 100%;
   display: flex;
@@ -185,7 +235,8 @@ button:disabled {
   align-items: center;
   min-width: 0;
   color: #f4f7ff;
-  font-size: 14px;
+  font-family: var(--font-logo);
+  font-size: 18px;
   font-weight: 700;
   white-space: nowrap;
   z-index: 2;
