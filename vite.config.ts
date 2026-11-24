@@ -74,6 +74,14 @@ const alphaTabAssets = (): Plugin => ({
 export default defineConfig({
   base: './',
   plugins: [react(), alphaTabAssets()],
+  server: {
+    watch: {
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 20
+      }
+    }
+  },
   optimizeDeps: {
     exclude: ['@coderline/alphatab']
   }

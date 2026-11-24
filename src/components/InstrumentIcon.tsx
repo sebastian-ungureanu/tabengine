@@ -1,9 +1,18 @@
+import { memo } from 'react';
 import * as alphaTab from '@coderline/alphatab';
-import { getInstrumentCategory, type InstrumentCategory } from '../utils/instruments';
+import {
+  getExplicitTrackInstrumentPreset,
+  getInstrumentCategory,
+  getTrackInstrumentPreset,
+  type InstrumentCategory,
+  type TrackInstrumentPreset
+} from '../utils/instruments';
 import { assetPath } from '../utils/assetPaths';
 
 interface InstrumentIconProps {
   track?: alphaTab.model.Track | null;
+  preset?: TrackInstrumentPreset | null;
+  revision?: number;
   className?: string;
 }
 
@@ -34,34 +43,47 @@ const TRACK_NAME_ICONS: Array<[RegExp, string]> = [
   [/\btrumpet\b|\bcornet\b|\bflugelhorn\b/, 'icons8-trumpet-100.png'],
   [/\btuba\b/, 'icons8-tuba-100.png'],
   [/\bviolin\b|\bviola\b|\bfiddle\b/, 'icons8-violin-100.png'],
-  [/\bpiano\b|\bkeyboard\b|\bkeys\b/, 'icons8-piano-100.png'],
   [/\bgrand\b.*\bpiano\b|\bpiano\b.*\bgrand\b/, 'icons8-grand-piano-100.png'],
-  [/\bdrums?\b|\bdrumkit\b|\bpercussion\b|\bkick\b|\bsnare\b|\bcymbal\b|\btom\b/, 'icons8-drums-100.png'],
+  [/\bpiano\b|\bkeyboard\b|\bkeys\b/, 'icons8-piano-100.png'],
   [/\bmarching\b.*\bdrum|\btenor drums?\b/, 'icons8-marching-tenor-drums-100.png'],
+  [/\bdrums?\b|\bdrumkit\b|\bpercussion\b|\bkick\b|\bsnare\b|\bcymbal\b|\btom\b/, 'icons8-drums-100.png'],
   [/\bvocal\b|\bvocals\b|\bvoice\b|\bchoir\b|\bchorus\b|\bsinger\b|\bmicrophone\b/, 'icons8-microphone-100.png'],
   [/\bacoustic\b.*\bguitar\b|\bguitar\b.*\bacoustic\b|\bfolk\b/, 'icons8-folk-100.png'],
   [/\belectric\b.*\bguitar\b|\bguitar\b.*\belectric\b|\bguitar\b|\bdistortion\b|\boverdrive\b/, 'icons8-guitar-100.png']
 ];
 
 const getIconFileName = (track: alphaTab.model.Track | null | undefined, category: InstrumentCategory) => {
+  const explicitPreset = getExplicitTrackInstrumentPreset(track);
+  if (explicitPreset) {
+    return explicitPreset.iconFileName;
+  }
+
+  const matchedPreset = getTrackInstrumentPreset(track);
+  if (matchedPreset) {
+    return matchedPreset.iconFileName;
+  }
+
   const trackName = track?.name.toLowerCase() ?? '';
   const match = TRACK_NAME_ICONS.find(([pattern]) => pattern.test(trackName));
   return match?.[1] ?? CATEGORY_ICONS[category];
 };
 
-const InstrumentIcon = ({ track, className = '' }: InstrumentIconProps) => {
-  const category = getInstrumentCategory(track);
-  const iconFileName = getIconFileName(track, category);
+const InstrumentIcon = memo(({ track, preset, revision, className = '' }: InstrumentIconProps) => {
+  void revision;
+  const category = preset ? preset.category : getInstrumentCategory(track);
+  const iconFileName = preset ? preset.iconFileName : getIconFileName(track, category);
 
   return (
     <span
       className={`instrument-type-icon ${className}`}
-      title={category}
-      aria-label={category}
+      title={preset ? preset.label : category}
+      aria-label={preset ? preset.label : category}
     >
-      <img src={`${MUSIC_ICON_BASE}${iconFileName}`} alt="" />
+      <img src={`${MUSIC_ICON_BASE}${iconFileName}`} alt="" loading="lazy" decoding="async" />
     </span>
   );
-};
+});
+
+InstrumentIcon.displayName = 'InstrumentIcon';
 
 export default InstrumentIcon;
