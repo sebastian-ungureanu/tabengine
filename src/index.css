@@ -51,6 +51,7 @@
   --accent-color-soft: rgba(124, 58, 237, 0.18);
   --accent-color-border: rgba(139, 92, 246, 0.52);
   --playhead-color: #ff0000;
+  --playhead-note-highlight: #dc2626;
   --playhead-glow: rgba(255, 0, 0, 0.45);
   --playhead-bar-bg: rgba(255, 0, 0, 0.14);
   --border-color: #3c3c3c;

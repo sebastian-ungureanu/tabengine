@@ -2765,10 +2765,18 @@ select,
   isolation: isolate;
 }
 
-.at-container .at-selection,
-.at-container .at-highlight {
+.at-container .at-selection {
   z-index: 1001 !important;
   pointer-events: none !important;
+}
+
+.at-container .at-highlight * {
+  fill: var(--playhead-note-highlight);
+  stroke: var(--playhead-note-highlight);
+}
+
+.at-container .at-highlight *[fill="transparent"] {
+  fill: transparent;
 }
 
 .at-cursor-bar {
